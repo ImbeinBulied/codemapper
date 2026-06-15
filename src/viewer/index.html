@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>codemapper</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #0d1117; font-family: system-ui, -apple-system, sans-serif; color: #e6edf3; }
+
+#canvas-container { position: fixed; inset: 0; cursor: grab; }
+#canvas-container:active { cursor: grabbing; }
+
+#sidebar {
+  position: fixed; top: 0; right: 0; width: 420px; height: 100%;
+  background: #161b22; border-left: 1px solid #30363d;
+  transform: translateX(100%); transition: transform 0.25s ease;
+  z-index: 10; display: flex; flex-direction: column;
+}
+#sidebar.open { transform: translateX(0); }
+#sidebar-header {
+  padding: 12px 16px; border-bottom: 1px solid #30363d;
+  display: flex; align-items: center; gap: 8px;
+}
+#sidebar-header .close { margin-left: auto; background: none; border: none; color: #8b949e; font-size: 18px; cursor: pointer; padding: 4px 8px; border-radius: 4px; }
+#sidebar-header .close:hover { color: #e6edf3; background: #21262d; }
+#sidebar-header .label { font-size: 13px; color: #8b949e; }
+#sidebar-header .name { font-weight: 600; font-size: 14px; }
+#sidebar-content { flex: 1; overflow: auto; padding: 0; font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace; font-size: 12px; }
+#sidebar-content .line { display: flex; padding: 0 16px; line-height: 1.6; }
+#sidebar-content .line:hover { background: #1c2128; }
+#sidebar-content .line-num { color: #484f58; text-align: right; padding-right: 16px; min-width: 48px; user-select: none; }
+#sidebar-content .line-code { white-space: pre; tab-size: 2; }
+#sidebar-content .line.highlight { background: #1f3a3f; }
+
+#toolbar {
+  position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+  background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+  padding: 6px 12px; display: flex; align-items: center; gap: 12px;
+  z-index: 5; font-size: 13px; backdrop-filter: blur(8px);
+}
+#toolbar .brand { font-weight: 700; font-size: 14px; color: #58a6ff; }
+#toolbar .sep { width: 1px; height: 20px; background: #30363d; }
+#toolbar .stat { color: #8b949e; }
+#toolbar .stat b { color: #e6edf3; }
+
+#tooltip {
+  position: fixed; pointer-events: none; z-index: 20;
+  background: #1c2128; border: 1px solid #30363d; border-radius: 6px;
+  padding: 6px 10px; font-size: 12px; max-width: 300px;
+  display: none; line-height: 1.5;
+}
+#tooltip .tt-label { color: #58a6ff; font-weight: 600; }
+#tooltip .tt-path { color: #8b949e; font-size: 11px; }
+#tooltip .tt-desc { color: #d2d8e0; font-size: 11px; }
+
+#status-bar {
+  position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%);
+  background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+  padding: 6px 14px; font-size: 12px; color: #8b949e; z-index: 5;
+  backdrop-filter: blur(8px); display: none; align-items: center; gap: 8px;
+}
+#status-bar.show { display: flex; }
+#status-bar .spinner { width: 12px; height: 12px; border: 2px solid #30363d; border-top-color: #58a6ff; border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+#legend {
+  position: fixed; bottom: 12px; right: 12px; z-index: 5;
+  background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+  padding: 10px 14px; font-size: 11px; display: flex; flex-direction: column; gap: 4px;
+}
+#legend .legend-item { display: flex; align-items: center; gap: 6px; }
+#legend .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+</style>
+</head>
+<body>
+
+<div id="status-bar"><div class="spinner"></div><span>Analyzing codebase...</span></div>
+<div id="toolbar"></div>
+<div id="canvas-container"><canvas id="canvas"></canvas></div>
+<div id="tooltip"></div>
+<div id="legend"></div>
+<div id="sidebar"><div id="sidebar-header"></div><div id="sidebar-content"></div></div>
+
+<script>
+const COLORS = {
+  file: '#30363d', function: '#d2a8ff', class: '#58a6ff',
+  interface: '#79c0ff', type: '#3fb950', module: '#8b949e',
+  call: '#f0883e', edge_imports: '#8b949e', edge_calls: '#f0883e',
+  edge_extends: '#58a6ff', edge_implements: '#79c0ff', edge_contains: '#30363d',
+  edge_callsites: '#f0883e', bg: '#0d1117',
+};
+const NODE_SIZE = { file: 16, function: 24, class: 28, interface: 26, type: 22, module: 14, call: 18 };
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const container = document.getElementById('canvas-container');
+const tooltip = document.getElementById('tooltip');
+const sidebar = document.getElementById('sidebar');
+const sidebarHeader = document.getElementById('sidebar-header');
+const sidebarContent = document.getElementById('sidebar-content');
+const toolbar = document.getElementById('toolbar');
+const statusBar = document.getElementById('status-bar');
+const legend = document.getElementById('legend');
+
+let sim, graphData, transform = { x: 0, y: 0, k: 1 };
+let isPanning = false, panStart = { x: 0, y: 0 };
+let hoveredNode = null, selectedNode = null;
+let nodes = [], edges = [];
+let nodeMap = new Map();
+
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = container.clientWidth * dpr;
+  canvas.height = container.clientHeight * dpr;
+  canvas.style.width = container.clientWidth + 'px';
+  canvas.style.height = container.clientHeight + 'px';
+  ctx.scale(dpr, dpr);
+  render();
+}
+
+// -- Mouse/Keyboard Interaction --
+container.addEventListener('mousedown', e => {
+  if (e.target !== canvas) return;
+  const p = screenToCanvas(e.clientX, e.clientY);
+  const hit = hitTest(p.x, p.y);
+  if (hit) {
+    selectNode(hit);
+    return;
+  }
+  isPanning = true;
+  panStart = { x: e.clientX - transform.x, y: e.clientY - transform.y };
+});
+container.addEventListener('mousemove', e => {
+  const p = screenToCanvas(e.clientX, e.clientY);
+  const hit = hitTest(p.x, p.y);
+  if (hit !== hoveredNode) {
+    hoveredNode = hit;
+    container.style.cursor = hit ? 'pointer' : 'grab';
+    if (hit) {
+      tooltip.style.display = 'block';
+      tooltip.innerHTML = `<div class="tt-label">${hit.label}</div><div class="tt-path">${hit.filePath}:${hit.line}</div>${hit.description ? `<div class="tt-desc">${hit.description}</div>` : ''}`;
+      tooltip.style.left = (e.clientX + 12) + 'px';
+      tooltip.style.top = (e.clientY + 12) + 'px';
+    } else {
+      tooltip.style.display = 'none';
+    }
+    render();
+  }
+  if (isPanning && !hit) {
+    transform.x = e.clientX - panStart.x;
+    transform.y = e.clientY - panStart.y;
+    render();
+  }
+});
+container.addEventListener('mouseup', () => { isPanning = false; });
+container.addEventListener('mouseleave', () => { isPanning = false; hoveredNode = null; tooltip.style.display = 'none'; render(); });
+container.addEventListener('wheel', e => {
+  e.preventDefault();
+  const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+  const mx = e.clientX, my = e.clientY;
+  transform.x = mx - (mx - transform.x) * zoomFactor;
+  transform.y = my - (my - transform.y) * zoomFactor;
+  transform.k *= zoomFactor;
+  render();
+}, { passive: false });
+window.addEventListener('resize', resize);
+
+// -- Coordinate math --
+function screenToCanvas(sx, sy) {
+  return { x: (sx - transform.x) / transform.k, y: (sy - transform.y) / transform.k };
+}
+
+function hitTest(cx, cy) {
+  for (const n of nodes) {
+    if (!n.x || !n.y) continue;
+    const size = (NODE_SIZE[n.kind] || 20) * 0.5 + 4;
+    if (Math.abs(cx - n.x) < size && Math.abs(cy - n.y) < size) return n;
+  }
+  return null;
+}
+
+// -- Selection --
+function selectNode(node) {
+  if (selectedNode === node) { closeSidebar(); return; }
+  selectedNode = node;
+  render();
+  sidebarHeader.innerHTML = `
+    <span class="label">${node.kind}</span>
+    <span class="name">${node.label}</span>
+    <button class="close" onclick="closeSidebar()">✕</button>
+  `;
+  sidebarContent.innerHTML = '<div style="padding:16px;color:#8b949e">Loading...</div>';
+  sidebar.classList.add('open');
+  fetch(`/api/file?path=${encodeURIComponent(node.filePath)}`)
+    .then(r => r.json())
+    .then(data => {
+      sidebarContent.innerHTML = data.lines.map((l, i) => {
+        const hl = (i + 1) >= node.line - 2 && (i + 1) <= node.line + 2 ? ' highlight' : '';
+        return `<div class="line${hl}"><span class="line-num">${l.line}</span><span class="line-code">${escapeHtml(l.text)}</span></div>`;
+      }).join('');
+    })
+    .catch(() => {
+      sidebarContent.innerHTML = '<div style="padding:16px;color:#f85149">Failed to load file</div>';
+    });
+}
+window.closeSidebar = function() {
+  selectedNode = null;
+  sidebar.classList.remove('open');
+  render();
+};
+
+function escapeHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// -- Render --
+function render() {
+  const w = container.clientWidth, h = container.clientHeight;
+  ctx.clearRect(0, 0, w, h);
+
+  // Background grid
+  ctx.save();
+  ctx.translate(transform.x, transform.y);
+  ctx.scale(transform.k, transform.k);
+  const gridSize = 40;
+  ctx.strokeStyle = '#161b22';
+  ctx.lineWidth = 1 / transform.k;
+  const minX = -transform.x / transform.k - gridSize;
+  const minY = -transform.y / transform.k - gridSize;
+  const maxX = minX + w / transform.k + gridSize * 2;
+  const maxY = minY + h / transform.k + gridSize * 2;
+  ctx.beginPath();
+  for (let x = Math.floor(minX / gridSize) * gridSize; x < maxX; x += gridSize) {
+    ctx.moveTo(x, minY); ctx.lineTo(x, maxY);
+  }
+  for (let y = Math.floor(minY / gridSize) * gridSize; y < maxY; y += gridSize) {
+    ctx.moveTo(minX, y); ctx.lineTo(maxX, y);
+  }
+  ctx.stroke();
+
+  // Edges
+  for (const e of edges) {
+    if (!e.source.x || !e.target.x) continue;
+    const sx = e.source.x, sy = e.source.y;
+    const tx = e.target.x, ty = e.target.y;
+    ctx.strokeStyle = COLORS[`edge_${e.kind}`] || '#8b949e';
+    ctx.lineWidth = 1.5 / transform.k;
+    if (hoveredNode && (e.source === hoveredNode || e.target === hoveredNode)) {
+      ctx.lineWidth = 2.5 / transform.k;
+    }
+    ctx.globalAlpha = (hoveredNode && e.source !== hoveredNode && e.target !== hoveredNode) ? 0.08 : 0.3;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    const dx = tx - sx, dy = ty - sy;
+    ctx.lineTo(tx, ty);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  // Nodes
+  const drawnNodes = nodes.filter(n => n.x != null);
+  drawnNodes.sort((a, b) => (hoveredNode === a ? 1 : 0) - (hoveredNode === b ? 1 : 0));
+  for (const n of drawnNodes) {
+    const size = (NODE_SIZE[n.kind] || 20) * 0.5;
+    const isHover = n === hoveredNode;
+    const isSel = n === selectedNode;
+
+    ctx.save();
+    ctx.translate(n.x, n.y);
+
+    // Glow
+    if (isHover || isSel) {
+      ctx.shadowColor = COLORS[n.kind] || '#8b949e';
+      ctx.shadowBlur = isSel ? 20 : 12;
+    }
+
+    // Shape
+    ctx.beginPath();
+    const color = COLORS[n.kind] || '#8b949e';
+    const borderColor = isHover ? '#e6edf3' : (isSel ? '#58a6ff' : '#30363d');
+    const borderWidth = isSel ? 2.5 : (isHover ? 2 : 1);
+    const r = size;
+
+    if (n.kind === 'file') {
+      // Circle
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+    } else if (n.kind === 'function') {
+      // Diamond
+      ctx.moveTo(0, -r); ctx.lineTo(r, 0); ctx.lineTo(0, r); ctx.lineTo(-r, 0); ctx.closePath();
+    } else if (n.kind === 'class') {
+      // Rounded rect
+      const rr = 4 / transform.k;
+      ctx.moveTo(-r, -r + rr); ctx.quadraticCurveTo(-r, -r, -r + rr, -r);
+      ctx.lineTo(r - rr, -r); ctx.quadraticCurveTo(r, -r, r, -r + rr);
+      ctx.lineTo(r, r - rr); ctx.quadraticCurveTo(r, r, r - rr, r);
+      ctx.lineTo(-r + rr, r); ctx.quadraticCurveTo(-r, r, -r, r - rr); ctx.closePath();
+    } else if (n.kind === 'interface' || n.kind === 'type') {
+      // Hexagon
+      for (let i = 0; i < 6; i++) {
+        const angle = (Math.PI / 3) * i - Math.PI / 6;
+        ctx.lineTo(r * Math.cos(angle), r * Math.sin(angle));
+      }
+      ctx.closePath();
+    } else {
+      ctx.arc(0, 0, r * 0.7, 0, Math.PI * 2);
+    }
+
+    ctx.fillStyle = color + '22';
+    ctx.fill();
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth = borderWidth / transform.k;
+    ctx.stroke();
+
+    ctx.shadowBlur = 0;
+
+    // Label
+    if (transform.k > 0.3) {
+      ctx.fillStyle = hoveredNode === n ? '#e6edf3' : '#8b949e';
+      ctx.font = `${Math.max(9, Math.round(11 * transform.k))}px system-ui, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      const label = n.label.length > 18 ? n.label.slice(0, 16) + '..' : n.label;
+      ctx.fillText(label, 0, size + 3 / transform.k);
+    }
+
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+// -- Layout --
+function initGraph(data) {
+  graphData = data;
+  const nm = new Map();
+  nodes = data.graph.nodes.map(n => {
+    const obj = { ...n, x: null, y: null, vx: 0, vy: 0 };
+    nm.set(n.id, obj);
+    return obj;
+  });
+  nodeMap = nm;
+  edges = data.graph.edges.map(e => ({
+    ...e,
+    source: nm.get(e.source),
+    target: nm.get(e.target),
+  })).filter(e => e.source && e.target);
+
+  // Center nodes
+  const cx = container.clientWidth / 2, cy = container.clientHeight / 2;
+  nodes.forEach((n, i) => {
+    const angle = (i / nodes.length) * Math.PI * 2;
+    const rad = Math.min(container.clientWidth, container.clientHeight) * 0.3;
+    n.x = cx + rad * Math.cos(angle);
+    n.y = cy + rad * Math.sin(angle);
+  });
+
+  sim = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(edges).id(d => d.id).distance(d => {
+      if (d.kind === 'contains') return 60;
+      if (d.kind === 'imports') return 200;
+      return 150;
+    }).strength(d => d.kind === 'contains' ? 0.8 : 0.3))
+    .force('charge', d3.forceManyBody().strength(-600))
+    .force('center', d3.forceCenter(cx, cy))
+    .force('collision', d3.forceCollide().radius(d => NODE_SIZE[d.kind] || 20))
+    .alphaDecay(0.02)
+    .on('tick', () => { render(); });
+
+  // Stats
+  updateStats(data);
+  buildLegend();
+  statusBar.classList.remove('show');
+}
+
+function updateStats(data) {
+  const s = data.stats;
+  toolbar.innerHTML = `
+    <span class="brand">codemapper</span>
+    <span class="sep"></span>
+    <span class="stat"><b>${s.files}</b> files</span>
+    <span class="stat"><b>${s.functions}</b> functions</span>
+    <span class="stat"><b>${s.classes}</b> types</span>
+    <span class="stat"><b>${s.imports}</b> imports</span>
+    <span class="sep"></span>
+    <span class="stat"><b>${nodes.length}</b> nodes · <b>${edges.length}</b> edges</span>
+  `;
+}
+
+function buildLegend() {
+  legend.innerHTML = Object.entries(COLORS).filter(([k]) => !k.startsWith('edge_') && k !== 'bg').map(([k, v]) =>
+    `<div class="legend-item"><div class="legend-dot" style="background:${v}"></div>${k}</div>`
+  ).join('');
+}
+
+// -- Init --
+async function init() {
+  statusBar.classList.add('show');
+  try {
+    const res = await fetch('/api/analyze');
+    const data = await res.json();
+    initGraph(data);
+  } catch (err) {
+    statusBar.innerHTML = 'Error analyzing codebase';
+    console.error(err);
+  }
+  resize();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
