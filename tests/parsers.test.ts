@@ -10,7 +10,7 @@ import { toSVG } from '../src/export.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-describe('TypeScript parser', () => {
+describe('TypeScript parser (TS Compiler API)', () => {
   it('parses a fixture with functions, classes, and imports', async () => {
     const { analyzeTypeScript } = await import('../src/analyze/typescript.js');
     const result = await analyzeTypeScript(`${__dirname}/fixtures/ts`, `${__dirname}/fixtures/ts`);
@@ -21,6 +21,45 @@ describe('TypeScript parser', () => {
     expect(result.edges.some(e => e.kind === 'imports')).toBe(true);
     expect(result.edges.some(e => e.kind === 'contains')).toBe(true);
     expect(result.edges.some(e => e.kind === 'calls')).toBe(true);
+  });
+
+  it('detects arrow functions and const-assigned functions', async () => {
+    const { analyzeTypeScript } = await import('../src/analyze/typescript.js');
+    const result = await analyzeTypeScript(`${__dirname}/fixtures/ts`, `${__dirname}/fixtures/ts`);
+    const funcs = result.nodes.filter(n => n.kind === 'function');
+    const names = funcs.map(f => f.label);
+    expect(names).toContain('createDog');
+    expect(names).toContain('main');
+    expect(names).toContain('fetchData');
+    expect(names).toContain('defaultHandler');
+    expect(names).toContain('exportedArrow');
+  });
+
+  it('detects class methods', async () => {
+    const { analyzeTypeScript } = await import('../src/analyze/typescript.js');
+    const result = await analyzeTypeScript(`${__dirname}/fixtures/ts`, `${__dirname}/fixtures/ts`);
+    const funcs = result.nodes.filter(n => n.kind === 'function');
+    const names = funcs.map(f => f.label);
+    expect(names).toContain('Dog.speak');
+    expect(names).toContain('Dog.wagTail');
+    expect(names).toContain('Dog.constructor');
+  });
+
+  it('detects interfaces and type aliases', async () => {
+    const { analyzeTypeScript } = await import('../src/analyze/typescript.js');
+    const result = await analyzeTypeScript(`${__dirname}/fixtures/ts`, `${__dirname}/fixtures/ts`);
+    const interfaces = result.nodes.filter(n => n.kind === 'interface');
+    const types = result.nodes.filter(n => n.kind === 'type');
+    expect(interfaces.some(i => i.label === 'Animal')).toBe(true);
+    expect(interfaces.some(i => i.label === 'Pet')).toBe(true);
+    expect(types.some(t => t.label === 'Callback')).toBe(true);
+  });
+
+  it('detects imports with aliases', async () => {
+    const { analyzeTypeScript } = await import('../src/analyze/typescript.js');
+    const result = await analyzeTypeScript(`${__dirname}/fixtures/ts`, `${__dirname}/fixtures/ts`);
+    const imports = result.edges.filter(e => e.kind === 'imports');
+    expect(imports.length).toBeGreaterThanOrEqual(2);
   });
 });
 
@@ -49,6 +88,13 @@ describe('Python parser', () => {
     expect(result.nodes.some(n => n.kind === 'function')).toBe(true);
     expect(result.nodes.some(n => n.kind === 'class')).toBe(true);
     expect(result.edges.some(e => e.kind === 'imports')).toBe(true);
+  });
+
+  it('handles various import styles', async () => {
+    const { analyzePython } = await import('../src/analyze/python.js');
+    const result = await analyzePython(`${__dirname}/fixtures/py`, `${__dirname}/fixtures/py`);
+    const imports = result.edges.filter(e => e.kind === 'imports');
+    expect(imports.length).toBeGreaterThanOrEqual(2);
   });
 });
 
@@ -99,7 +145,7 @@ describe('config', () => {
 describe('export', () => {
   it('toSVG generates valid SVG', () => {
     const result = {
-      graph: { nodes: [{ id: 'n1', label: 'test', kind: 'class', filePath: '/test.ts', line: 1, col: 1 }], edges: [] },
+      graph: { nodes: [{ id: 'n1', label: 'test', kind: 'class' as const, filePath: '/test.ts', line: 1, col: 1 }], edges: [] },
       root: '/test',
       stats: { files: 1, functions: 0, classes: 1, imports: 0 },
     };

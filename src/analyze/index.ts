@@ -7,6 +7,7 @@ import { analyzePython } from './python.js';
 import { analyzeGo } from './go.js';
 import { analyzeJava } from './java.js';
 import { loadConfig } from '../config.js';
+import { parseWithTreesitter, initTreesitter, tsParserAvailable } from './treesitter.js';
 
 const LANG_DETECTORS: [string, string[]][] = [
   ['typescript', ['.ts', '.tsx', '.js', '.jsx', '.mjs']],
@@ -138,6 +139,14 @@ export async function analyzeCodebase(dir: string, filter?: string): Promise<Ana
     const result = await parser(resolvedDir, resolvedDir, config);
     addNodes(result.nodes);
     addEdges(result.edges);
+  }
+
+  // Optional: try tree-sitter for additional accuracy (if WASM grammars available)
+  // Tree-sitter can parse languages not covered by regex parsers (C, Ruby, etc.)
+  const tsResult = await parseWithTreesitter(resolvedDir, resolvedDir, config);
+  if (tsResult.nodes.length > 0) {
+    addNodes(tsResult.nodes);
+    addEdges(tsResult.edges);
   }
 
   const extDeps = parseExternalDeps(resolvedDir);

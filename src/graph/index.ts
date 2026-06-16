@@ -1,7 +1,7 @@
 export interface GraphNode {
   id: string;
   label: string;
-  kind: 'file' | 'function' | 'class' | 'interface' | 'type' | 'module' | 'call' | 'directory';
+  kind: 'file' | 'function' | 'class' | 'interface' | 'type' | 'module' | 'call' | 'directory' | 'enum';
   filePath: string;
   line: number;
   col: number;
@@ -18,7 +18,7 @@ export interface Config {
 export interface GraphEdge {
   source: string;
   target: string;
-  kind: 'imports' | 'calls' | 'extends' | 'implements' | 'contains' | 'callsites';
+  kind: 'imports' | 'calls' | 'extends' | 'implements' | 'contains' | 'callsites' | 'exports';
   label?: string;
 }
 

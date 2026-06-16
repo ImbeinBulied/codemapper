@@ -35,7 +35,7 @@ export function toSVG(result: AnalysisResult): string {
 
   const edgeColorMap: Record<string, string> = {
     imports: '#8b949e', calls: '#f0883e', extends: '#58a6ff',
-    implements: '#79c0ff', contains: '#30363d',
+    implements: '#79c0ff', contains: '#30363d', exports: '#3fb950',
   };
 
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
