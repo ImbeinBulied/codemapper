@@ -1,5 +1,7 @@
 import fs from 'node:fs';
-import { GraphNode, GraphEdge, CodeGraph } from '../graph/index.js';
+import path from 'node:path';
+import { GraphNode, GraphEdge, CodeGraph, Config } from '../graph/index.js';
+import { readFileSafe, findLine, walkFiles } from './utils.js';
 
 const IMPORT_RE = /import\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)\s*,?\s*)*\s*from\s+['"]([^'"]+)['"]/g;
 const EXPORT_FUNC_RE = /export\s+(?:default\s+)?(?:async\s+)?function\s+(\w+)/g;
@@ -11,27 +13,23 @@ const ARROW_FUNC_RE = /(?:export\s+)?(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+
 const CALL_RE = /(\w+)\s*\(/g;
 const EXTENDS_RE = /class\s+\w+\s+extends\s+(\w+)/g;
 const IMPLEMENTS_RE = /class\s+\w+\s+implements\s+(\w+)/g;
+const SKIP_CALLS = /^(import|from|export|default|if|else|for|while|switch|case|return|throw|try|catch|finally|new|typeof|instanceof|void|delete|in|of|as|let|const|var|function|class|interface|type|enum|module|namespace|declare|abstract|public|private|protected|static|readonly|async|await|yield|constructor|get|set|this|super|true|false|null|undefined|NaN|Infinity|console|require|module|process|window|document|Math|JSON|Array|Object|String|Number|Boolean|RegExp|Date|Map|Set|Promise|Error|Symbol|BigInt|Proxy|Reflect)$/;
 
-const SKIP_DIRS = /node_modules|\.git|dist|build|target/;
-
-function isCodeFile(path: string): boolean {
-  return /\.(ts|tsx|js|jsx|mjs)$/.test(path) && !SKIP_DIRS.test(path);
+function isCodeFile(p: string): boolean {
+  return /\.(ts|tsx|js|jsx|mjs)$/.test(p);
 }
 
-export async function analyzeTypeScript(dir: string, rootDir: string): Promise<CodeGraph> {
+export async function analyzeTypeScript(dir: string, rootDir: string, config?: Config): Promise<CodeGraph> {
   const nodes: GraphNode[] = [];
   const edges: GraphEdge[] = [];
-  const allFiles = await walkFiles(dir);
+  const allFiles = await walkFiles(dir, config);
   const tsFiles = allFiles.filter(isCodeFile);
-
-  const fileNodeMap = new Map<string, string>();
 
   for (const filePath of tsFiles) {
     const relPath = filePath.startsWith(rootDir)
       ? filePath.slice(rootDir.length).replace(/\\/g, '/')
       : filePath;
     const nodeId = `file:${relPath}`;
-    fileNodeMap.set(filePath, nodeId);
 
     nodes.push({
       id: nodeId,
@@ -43,141 +41,75 @@ export async function analyzeTypeScript(dir: string, rootDir: string): Promise<C
       description: relPath,
     });
 
-    try {
-      const content = fs.readFileSync(filePath, 'utf-8');
-      const lines = content.split('\n');
+    const { content, error } = readFileSafe(filePath);
+    if (!content) continue;
+    const lines = content.split('\n');
+    const localFuncs = new Set<string>();
 
-      // imports
-      for (const match of content.matchAll(IMPORT_RE)) {
-        const target = match[1];
-        edges.push({
-          source: nodeId,
-          target: `module:${target}`,
-          kind: 'imports',
-          label: target,
-        });
-      }
+    for (const match of content.matchAll(IMPORT_RE)) {
+      edges.push({ source: nodeId, target: `module:${match[1]}`, kind: 'imports', label: match[1] });
+    }
 
-      // classes
-      for (const match of content.matchAll(CLASS_RE)) {
-        const name = match[1];
-        const lineNum = findLine(lines, name);
-        const classId = `class:${relPath}#${name}`;
-        nodes.push({
-          id: classId,
-          label: name,
-          kind: 'class',
-          filePath: relPath,
-          line: lineNum,
-          col: 1,
-        });
-        edges.push({ source: nodeId, target: classId, kind: 'contains' });
-      }
+    for (const match of content.matchAll(CLASS_RE)) {
+      localFuncs.add(match[1]);
+      const lineNum = findLine(lines, match[1]);
+      const classId = `class:${relPath}#${match[1]}`;
+      nodes.push({ id: classId, label: match[1], kind: 'class', filePath: relPath, line: lineNum, col: 1 });
+      edges.push({ source: nodeId, target: classId, kind: 'contains' });
+    }
 
-      // interfaces
-      for (const match of content.matchAll(INTERFACE_RE)) {
-        const name = match[1];
-        const lineNum = findLine(lines, name);
-        const ifaceId = `interface:${relPath}#${name}`;
-        nodes.push({
-          id: ifaceId,
-          label: name,
-          kind: 'interface',
-          filePath: relPath,
-          line: lineNum,
-          col: 1,
-        });
-        edges.push({ source: nodeId, target: ifaceId, kind: 'contains' });
-      }
+    for (const match of content.matchAll(INTERFACE_RE)) {
+      localFuncs.add(match[1]);
+      const lineNum = findLine(lines, match[1]);
+      const ifaceId = `interface:${relPath}#${match[1]}`;
+      nodes.push({ id: ifaceId, label: match[1], kind: 'interface', filePath: relPath, line: lineNum, col: 1 });
+      edges.push({ source: nodeId, target: ifaceId, kind: 'contains' });
+    }
 
-      // type aliases
-      for (const match of content.matchAll(TYPE_RE)) {
-        const name = match[1];
-        const lineNum = findLine(lines, name);
-        const typeId = `type:${relPath}#${name}`;
-        nodes.push({
-          id: typeId,
-          label: name,
-          kind: 'type',
-          filePath: relPath,
-          line: lineNum,
-          col: 1,
-        });
-        edges.push({ source: nodeId, target: typeId, kind: 'contains' });
-      }
+    for (const match of content.matchAll(TYPE_RE)) {
+      localFuncs.add(match[1]);
+      const lineNum = findLine(lines, match[1]);
+      const typeId = `type:${relPath}#${match[1]}`;
+      nodes.push({ id: typeId, label: match[1], kind: 'type', filePath: relPath, line: lineNum, col: 1 });
+      edges.push({ source: nodeId, target: typeId, kind: 'contains' });
+    }
 
-      // exported functions
-      for (const match of content.matchAll(EXPORT_FUNC_RE)) {
-        const name = match[1];
-        const lineNum = findLine(lines, name);
-        const funcId = `func:${relPath}#${name}`;
-        nodes.push({
-          id: funcId,
-          label: name,
-          kind: 'function',
-          filePath: relPath,
-          line: lineNum,
-          col: 1,
-        });
+    for (const match of content.matchAll(EXPORT_FUNC_RE)) {
+      localFuncs.add(match[1]);
+      const lineNum = findLine(lines, match[1]);
+      nodes.push({ id: `func:${relPath}#${match[1]}`, label: match[1], kind: 'function', filePath: relPath, line: lineNum, col: 1 });
+      edges.push({ source: nodeId, target: `func:${relPath}#${match[1]}`, kind: 'contains' });
+    }
+
+    for (const match of content.matchAll(FUNC_RE)) {
+      localFuncs.add(match[1]);
+    }
+
+    for (const match of content.matchAll(ARROW_FUNC_RE)) {
+      const funcId = `func:${relPath}#${match[1]}`;
+      if (!nodes.some(n => n.id === funcId)) {
+        localFuncs.add(match[1]);
+        const lineNum = findLine(lines, match[1]);
+        nodes.push({ id: funcId, label: match[1], kind: 'function', filePath: relPath, line: lineNum, col: 1 });
         edges.push({ source: nodeId, target: funcId, kind: 'contains' });
       }
+    }
 
-      // arrow functions
-      for (const match of content.matchAll(ARROW_FUNC_RE)) {
-        const name = match[1];
-        const lineNum = findLine(lines, name);
-        const funcId = `func:${relPath}#${name}`;
-        if (!nodes.some(n => n.id === funcId)) {
-          nodes.push({
-            id: funcId,
-            label: name,
-            kind: 'function',
-            filePath: relPath,
-            line: lineNum,
-            col: 1,
-          });
-          edges.push({ source: nodeId, target: funcId, kind: 'contains' });
-        }
-      }
+    for (const match of content.matchAll(EXTENDS_RE)) {
+      edges.push({ source: nodeId, target: `class:${match[1]}`, kind: 'extends', label: match[1] });
+    }
+    for (const match of content.matchAll(IMPLEMENTS_RE)) {
+      edges.push({ source: nodeId, target: `interface:${match[1]}`, kind: 'implements', label: match[1] });
+    }
 
-      // extends / implements
-      for (const match of content.matchAll(EXTENDS_RE)) {
-        const target = match[1];
-        edges.push({ source: nodeId, target: `class:${target}`, kind: 'extends', label: target });
+    for (const match of content.matchAll(CALL_RE)) {
+      const name = match[1];
+      if (SKIP_CALLS.test(name)) continue;
+      if (localFuncs.has(name)) {
+        edges.push({ source: nodeId, target: `func:${relPath}#${name}`, kind: 'calls', label: name });
       }
-      for (const match of content.matchAll(IMPLEMENTS_RE)) {
-        const target = match[1];
-        edges.push({ source: nodeId, target: `interface:${target}`, kind: 'implements', label: target });
-      }
-
-    } catch {
-      // skip unreadable files
     }
   }
 
   return { nodes, edges };
-}
-
-function findLine(lines: string[], name: string): number {
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].includes(name)) return i + 1;
-  }
-  return 1;
-}
-
-async function walkFiles(dir: string): Promise<string[]> {
-  const results: string[] = [];
-  try {
-    const entries = await fs.promises.readdir(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      const fullPath = `${dir}/${entry.name}`;
-      if (entry.name.startsWith('.') || SKIP_DIRS.test(entry.name)) continue;
-      if (entry.isDirectory()) {
-        results.push(...await walkFiles(fullPath));
-      } else {
-        results.push(fullPath);
-      }
-    }
-  } catch { }
-  return results;
 }

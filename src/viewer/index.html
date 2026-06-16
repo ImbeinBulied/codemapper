@@ -4,13 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>codemapper</title>
-<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="/d3.min.js"></script>
+<script>if(typeof d3==='undefined'){var s=document.createElement('script');s.src='https://d3js.org/d3.v7.min.js';s.onerror=function(){console.warn('D3 failed to load from CDN')};document.head.appendChild(s)}</script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { width: 100%; height: 100%; overflow: hidden; background: #0d1117; font-family: system-ui, -apple-system, sans-serif; color: #e6edf3; }
 
 #canvas-container { position: fixed; inset: 0; cursor: grab; }
 #canvas-container:active { cursor: grabbing; }
+#canvas-container.dragging { cursor: grabbing; }
 
 #sidebar {
   position: fixed; top: 0; right: 0; width: 420px; height: 100%;
@@ -25,7 +27,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #0d1117; f
 }
 #sidebar-header .close { margin-left: auto; background: none; border: none; color: #8b949e; font-size: 18px; cursor: pointer; padding: 4px 8px; border-radius: 4px; }
 #sidebar-header .close:hover { color: #e6edf3; background: #21262d; }
-#sidebar-header .label { font-size: 13px; color: #8b949e; }
+#sidebar-header .label { font-size: 13px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; }
 #sidebar-header .name { font-weight: 600; font-size: 14px; }
 #sidebar-content { flex: 1; overflow: auto; padding: 0; font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace; font-size: 12px; }
 #sidebar-content .line { display: flex; padding: 0 16px; line-height: 1.6; }
@@ -33,17 +35,87 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #0d1117; f
 #sidebar-content .line-num { color: #484f58; text-align: right; padding-right: 16px; min-width: 48px; user-select: none; }
 #sidebar-content .line-code { white-space: pre; tab-size: 2; }
 #sidebar-content .line.highlight { background: #1f3a3f; }
+#sidebar-content .token-keyword { color: #d2a8ff; }
+#sidebar-content .token-string { color: #a5d6ff; }
+#sidebar-content .token-comment { color: #484f58; font-style: italic; }
+#sidebar-content .token-number { color: #f0883e; }
+#sidebar-content .token-type { color: #79c0ff; }
+#sidebar-content .token-constant { color: #f0883e; }
+#sidebar-content .token-punctuation { color: #8b949e; }
 
 #toolbar {
   position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
-  background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+  background: #161b22ee; border: 1px solid #30363d; border-radius: 8px;
   padding: 6px 12px; display: flex; align-items: center; gap: 12px;
   z-index: 5; font-size: 13px; backdrop-filter: blur(8px);
 }
-#toolbar .brand { font-weight: 700; font-size: 14px; color: #58a6ff; }
-#toolbar .sep { width: 1px; height: 20px; background: #30363d; }
-#toolbar .stat { color: #8b949e; }
+#toolbar .brand { font-weight: 700; font-size: 14px; color: #58a6ff; white-space: nowrap; }
+#toolbar .sep { width: 1px; height: 20px; background: #30363d; flex-shrink: 0; }
+#toolbar .stat { color: #8b949e; white-space: nowrap; }
 #toolbar .stat b { color: #e6edf3; }
+
+#search-container {
+  display: flex; align-items: center; gap: 6px;
+  background: #0d1117; border: 1px solid #30363d; border-radius: 6px;
+  padding: 3px 8px; flex-shrink: 0;
+}
+#search-input {
+  background: transparent; border: none; color: #e6edf3;
+  font-size: 12px; font-family: system-ui; outline: none; width: 120px;
+}
+#search-input::placeholder { color: #484f58; }
+#search-count { color: #484f58; font-size: 11px; min-width: 30px; text-align: right; }
+#search-count.has-results { color: #f0883e; }
+
+.filter-btn {
+  background: none; border: 1px solid #30363d; color: #8b949e;
+  border-radius: 4px; padding: 2px 8px; cursor: pointer; font-size: 11px; white-space: nowrap;
+}
+.filter-btn:hover { color: #e6edf3; border-color: #58a6ff; }
+.filter-btn.active { background: #1f3a3f; border-color: #58a6ff; color: #58a6ff; }
+.filter-btn.hidden-kind { opacity: 0.4; }
+
+.export-btn {
+  position: relative;
+  background: none; border: 1px solid #30363d; color: #8b949e;
+  border-radius: 4px; padding: 2px 8px; cursor: pointer; font-size: 11px;
+}
+.export-btn:hover { color: #e6edf3; border-color: #8b949e; }
+
+#export-dropdown {
+  display: none; position: absolute; top: 100%; right: 0; margin-top: 4px;
+  background: #1c2128; border: 1px solid #30363d; border-radius: 6px;
+  z-index: 15; min-width: 120px; padding: 4px 0;
+}
+#export-dropdown.show { display: block; }
+#export-dropdown button {
+  display: block; width: 100%; background: none; border: none;
+  color: #e6edf3; font-size: 12px; text-align: left; padding: 6px 12px; cursor: pointer;
+}
+#export-dropdown button:hover { background: #21262d; }
+
+#zoom-badge {
+  position: fixed; bottom: 12px; left: 12px; z-index: 5;
+  background: #161b22ee; border: 1px solid #30363d; border-radius: 8px;
+  padding: 5px 10px; font-size: 11px; color: #8b949e;
+  display: flex; align-items: center; gap: 8px; backdrop-filter: blur(8px);
+}
+#zoom-badge button {
+  background: none; border: 1px solid #30363d; color: #8b949e;
+  border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 11px;
+}
+#zoom-badge button:hover { color: #e6edf3; background: #21262d; }
+
+#help-hint {
+  position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%);
+  background: #161b22cc; border: 1px solid #30363d; border-radius: 8px;
+  padding: 5px 12px; font-size: 11px; color: #484f58; z-index: 4;
+  backdrop-filter: blur(8px); white-space: nowrap;
+}
+#help-hint kbd {
+  background: #21262d; border: 1px solid #30363d; border-radius: 3px;
+  padding: 0px 4px; font-size: 10px; font-family: system-ui; color: #8b949e;
+}
 
 #tooltip {
   position: fixed; pointer-events: none; z-index: 20;
@@ -54,6 +126,20 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #0d1117; f
 #tooltip .tt-label { color: #58a6ff; font-weight: 600; }
 #tooltip .tt-path { color: #8b949e; font-size: 11px; }
 #tooltip .tt-desc { color: #d2d8e0; font-size: 11px; }
+
+#context-menu {
+  position: fixed; display: none; z-index: 25;
+  background: #1c2128; border: 1px solid #30363d; border-radius: 8px;
+  padding: 4px; min-width: 160px;
+}
+#context-menu.show { display: block; }
+#context-menu .cm-item {
+  display: block; width: 100%; background: none; border: none;
+  color: #e6edf3; font-size: 12px; text-align: left; padding: 6px 12px; cursor: pointer;
+  border-radius: 4px;
+}
+#context-menu .cm-item:hover { background: #21262d; }
+#context-menu .cm-sep { height: 1px; background: #30363d; margin: 4px 0; }
 
 #status-bar {
   position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%);
@@ -67,48 +153,112 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #0d1117; f
 
 #legend {
   position: fixed; bottom: 12px; right: 12px; z-index: 5;
-  background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+  background: #161b22ee; border: 1px solid #30363d; border-radius: 8px;
   padding: 10px 14px; font-size: 11px; display: flex; flex-direction: column; gap: 4px;
+  backdrop-filter: blur(8px); transition: transform 0.25s ease;
 }
+#legend.shifted-right { transform: translateX(-440px); }
 #legend .legend-item { display: flex; align-items: center; gap: 6px; }
-#legend .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+#legend .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+#error-overlay {
+  position: fixed; inset: 0; background: #0d1117; z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 12px; color: #f85149;
+}
+#error-overlay h2 { font-size: 16px; color: #e6edf3; }
+#error-overlay p { font-size: 13px; color: #8b949e; max-width: 400px; text-align: center; line-height: 1.5; }
 </style>
 </head>
 <body>
 
+<div id="error-overlay" style="display:none"><h2>codemapper</h2><p id="error-msg"></p></div>
 <div id="status-bar"><div class="spinner"></div><span>Analyzing codebase...</span></div>
-<div id="toolbar"></div>
+<div id="toolbar">
+  <span class="brand">codemapper</span>
+  <span class="sep"></span>
+  <div id="search-container">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#484f58" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input id="search-input" type="text" placeholder="Search..." spellcheck="false" />
+    <span id="search-count"></span>
+  </div>
+  <span class="sep"></span>
+  <span id="stats"></span>
+  <span class="sep"></span>
+  <div style="display:flex;align-items:center;gap:4px">
+    <button class="filter-btn" data-kind="file" onclick="toggleFilter('file')">F</button>
+    <button class="filter-btn" data-kind="function" onclick="toggleFilter('function')">fn</button>
+    <button class="filter-btn" data-kind="class" onclick="toggleFilter('class')">C</button>
+    <button class="filter-btn" data-kind="interface" onclick="toggleFilter('interface')">I</button>
+    <button class="filter-btn" data-kind="type" onclick="toggleFilter('type')">T</button>
+  </div>
+  <span class="sep"></span>
+  <div class="export-btn" onclick="toggleExport(event)">
+    Export &#9662;
+    <div id="export-dropdown">
+      <button onclick="exportPNG()">Export PNG</button>
+      <button onclick="exportJSON()">Export JSON</button>
+    </div>
+  </div>
+</div>
 <div id="canvas-container"><canvas id="canvas"></canvas></div>
+<div id="context-menu"></div>
 <div id="tooltip"></div>
 <div id="legend"></div>
+<div id="zoom-badge">
+  <button onclick="resetZoom()" title="Reset zoom">1:1</button>
+  <span id="zoom-level">100%</span>
+</div>
+<div id="help-hint">
+  <kbd>/</kbd> search &nbsp; <kbd>Drag</kbd> pan &nbsp; <kbd>Scroll</kbd> zoom &nbsp; <kbd>Click</kbd> inspect &nbsp; <kbd>Esc</kbd> close &nbsp; <kbd>Right-click</kbd> menu
+</div>
 <div id="sidebar"><div id="sidebar-header"></div><div id="sidebar-content"></div></div>
 
 <script>
 const COLORS = {
   file: '#30363d', function: '#d2a8ff', class: '#58a6ff',
   interface: '#79c0ff', type: '#3fb950', module: '#8b949e',
-  call: '#f0883e', edge_imports: '#8b949e', edge_calls: '#f0883e',
+  call: '#f0883e', directory: '#21262d',
+  edge_imports: '#8b949e', edge_calls: '#f0883e',
   edge_extends: '#58a6ff', edge_implements: '#79c0ff', edge_contains: '#30363d',
-  edge_callsites: '#f0883e', bg: '#0d1117',
+  bg: '#0d1117',
 };
-const NODE_SIZE = { file: 16, function: 24, class: 28, interface: 26, type: 22, module: 14, call: 18 };
+const NODE_SIZE = { file: 16, function: 24, class: 28, interface: 26, type: 22, module: 14, call: 18, directory: 0 };
 
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const container = document.getElementById('canvas-container');
 const tooltip = document.getElementById('tooltip');
+const contextMenu = document.getElementById('context-menu');
 const sidebar = document.getElementById('sidebar');
 const sidebarHeader = document.getElementById('sidebar-header');
 const sidebarContent = document.getElementById('sidebar-content');
-const toolbar = document.getElementById('toolbar');
 const statusBar = document.getElementById('status-bar');
 const legend = document.getElementById('legend');
+const searchInput = document.getElementById('search-input');
+const searchCount = document.getElementById('search-count');
+const zoomLevelEl = document.getElementById('zoom-level');
+const errorOverlay = document.getElementById('error-overlay');
+const errorMsg = document.getElementById('error-msg');
 
 let sim, graphData, transform = { x: 0, y: 0, k: 1 };
 let isPanning = false, panStart = { x: 0, y: 0 };
-let hoveredNode = null, selectedNode = null;
+let hoveredNode = null, hoveredEdge = null, selectedNode = null;
 let nodes = [], edges = [];
 let nodeMap = new Map();
+let isDragging = false, dragNode = null;
+let searchTerm = '';
+let matchedNodes = [];
+let simSettled = false;
+let focusNode = null;
+let hiddenKinds = { module: true, call: true };
+let directoryClusters = [];
+let edgeLabels = false;
+
+function showError(msg) {
+  errorMsg.textContent = msg;
+  errorOverlay.style.display = 'flex';
+}
 
 function resize() {
   const dpr = window.devicePixelRatio || 1;
@@ -116,46 +266,156 @@ function resize() {
   canvas.height = container.clientHeight * dpr;
   canvas.style.width = container.clientWidth + 'px';
   canvas.style.height = container.clientHeight + 'px';
-  ctx.scale(dpr, dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   render();
 }
 
-// -- Mouse/Keyboard Interaction --
+function screenToCanvas(sx, sy) {
+  return { x: (sx - transform.x) / transform.k, y: (sy - transform.y) / transform.k };
+}
+
+function hitTest(cx, cy) {
+  let best = null, bestDist = Infinity;
+  for (const n of nodes) {
+    if (n.x == null || n.y == null) continue;
+    if (n.kind === 'directory') continue;
+    const size = (NODE_SIZE[n.kind] || 20) * 0.5 + 4;
+    const dx = cx - n.x, dy = cy - n.y;
+    const dist = dx * dx + dy * dy;
+    if (dist < size * size && dist < bestDist) {
+      best = n;
+      bestDist = dist;
+    }
+  }
+  return best;
+}
+
+function hitTestEdge(cx, cy) {
+  let best = null, bestDist = 150;
+  for (const e of edges) {
+    if (!e.source.x || !e.target.x) continue;
+    const sx = e.source.x, sy = e.source.y;
+    const tx = e.target.x, ty = e.target.y;
+    const dx = tx - sx, dy = ty - sy;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len === 0) continue;
+    const t = ((cx - sx) * dx + (cy - sy) * dy) / (len * len);
+    const px = sx + Math.max(0, Math.min(1, t)) * dx;
+    const py = sy + Math.max(0, Math.min(1, t)) * dy;
+    const d = Math.hypot(cx - px, cy - py);
+    if (d < bestDist) { bestDist = d; best = e; }
+  }
+  return best;
+}
+
+function clampTooltip() {
+  const ttW = tooltip.offsetWidth || 300;
+  const ttH = tooltip.offsetHeight || 60;
+  let tx = parseFloat(tooltip.style.left) || 0;
+  let ty = parseFloat(tooltip.style.top) || 0;
+  if (tx + ttW > window.innerWidth - 4) tx = window.innerWidth - ttW - 4;
+  if (ty + ttH > window.innerHeight - 4) ty = window.innerHeight - ttH - 4;
+  if (tx < 4) tx = 4;
+  if (ty < 4) ty = 4;
+  tooltip.style.left = tx + 'px';
+  tooltip.style.top = ty + 'px';
+}
+
 container.addEventListener('mousedown', e => {
   if (e.target !== canvas) return;
   const p = screenToCanvas(e.clientX, e.clientY);
   const hit = hitTest(p.x, p.y);
   if (hit) {
+    isDragging = true;
+    dragNode = hit;
+    container.classList.add('dragging');
+    if (sim && !simSettled) sim.alphaTarget(0.3).restart();
     selectNode(hit);
     return;
   }
   isPanning = true;
   panStart = { x: e.clientX - transform.x, y: e.clientY - transform.y };
 });
+
 container.addEventListener('mousemove', e => {
   const p = screenToCanvas(e.clientX, e.clientY);
+
+  if (isDragging && dragNode) {
+    dragNode.fx = p.x;
+    dragNode.fy = p.y;
+    if (sim && simSettled) { sim.alphaTarget(0.15).restart(); simSettled = false; }
+    render();
+    return;
+  }
+
   const hit = hitTest(p.x, p.y);
-  if (hit !== hoveredNode) {
+  const edgeHit = hit ? null : hitTestEdge(p.x, p.y);
+
+  if (hit !== hoveredNode || edgeHit !== hoveredEdge) {
+    hoveredEdge = edgeHit;
     hoveredNode = hit;
-    container.style.cursor = hit ? 'pointer' : 'grab';
-    if (hit) {
+
+    if (edgeHit && !hit) {
+      container.style.cursor = 'pointer';
       tooltip.style.display = 'block';
-      tooltip.innerHTML = `<div class="tt-label">${hit.label}</div><div class="tt-path">${hit.filePath}:${hit.line}</div>${hit.description ? `<div class="tt-desc">${hit.description}</div>` : ''}`;
+      tooltip.innerHTML = '<div class="tt-label">' + (edgeHit.label || edgeHit.kind) + '</div><div class="tt-path">' + edgeHit.kind + '</div>';
       tooltip.style.left = (e.clientX + 12) + 'px';
       tooltip.style.top = (e.clientY + 12) + 'px';
+      clampTooltip();
+    } else if (hit) {
+      container.style.cursor = 'pointer';
+      tooltip.style.display = 'block';
+      let edgesInfo = '';
+      let edgeLabelsArr = [];
+      for (const e of edges) {
+        if (e.source === hit || e.target === hit) {
+          if (e.label && !edgeLabelsArr.includes(e.label)) edgeLabelsArr.push(e.label);
+        }
+      }
+      if (edgeLabelsArr.length > 0) {
+        edgesInfo = edgeLabelsArr.slice(0, 5).map(l => '<div style="color:#8b949e;font-size:10px">→ ' + l + '</div>').join('');
+      }
+      tooltip.innerHTML =
+        '<div class="tt-label">' + hit.label + '</div>' +
+        '<div class="tt-path">' + hit.filePath + ':' + hit.line + '</div>' +
+        (hit.description ? '<div class="tt-desc">' + hit.description + '</div>' : '') +
+        edgesInfo;
+      tooltip.style.left = (e.clientX + 12) + 'px';
+      tooltip.style.top = (e.clientY + 12) + 'px';
+      clampTooltip();
     } else {
       tooltip.style.display = 'none';
     }
     render();
   }
+
   if (isPanning && !hit) {
     transform.x = e.clientX - panStart.x;
     transform.y = e.clientY - panStart.y;
     render();
   }
 });
-container.addEventListener('mouseup', () => { isPanning = false; });
-container.addEventListener('mouseleave', () => { isPanning = false; hoveredNode = null; tooltip.style.display = 'none'; render(); });
+
+container.addEventListener('mouseup', () => {
+  if (isDragging && dragNode) {
+    if (sim) { sim.alphaTarget(0); if (sim.alpha() < 0.005) sim.stop(); }
+    dragNode.fx = null;
+    dragNode.fy = null;
+    isDragging = false;
+    dragNode = null;
+    container.classList.remove('dragging');
+  }
+  isPanning = false;
+});
+
+container.addEventListener('mouseleave', () => {
+  isPanning = false;
+  hoveredNode = null;
+  hoveredEdge = null;
+  tooltip.style.display = 'none';
+  render();
+});
+
 container.addEventListener('wheel', e => {
   e.preventDefault();
   const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
@@ -163,43 +423,54 @@ container.addEventListener('wheel', e => {
   transform.x = mx - (mx - transform.x) * zoomFactor;
   transform.y = my - (my - transform.y) * zoomFactor;
   transform.k *= zoomFactor;
+  updateZoomLevel();
   render();
 }, { passive: false });
+
+container.addEventListener('contextmenu', e => {
+  if (e.target !== canvas) return;
+  e.preventDefault();
+  const p = screenToCanvas(e.clientX, e.clientY);
+  const hit = hitTest(p.x, p.y);
+  if (!hit) { contextMenu.classList.remove('show'); return; }
+  contextMenu.innerHTML =
+    '<button class="cm-item" onclick="copyPath(\'' + escapeHtml(hit.filePath) + '\')">Copy path</button>' +
+    '<div class="cm-sep"></div>' +
+    '<button class="cm-item" onclick="setFocusNode(' + nodes.indexOf(hit) + ')">Show dependents</button>' +
+    '<button class="cm-item" onclick="focusKind(\'' + hit.kind + '\')">Show only ' + hit.kind + '</button>' +
+    '<button class="cm-item" onclick="hideKind(\'' + hit.kind + '\')">Hide ' + hit.kind + '</button>';
+  contextMenu.style.left = e.clientX + 'px';
+  contextMenu.style.top = e.clientY + 'px';
+  contextMenu.classList.add('show');
+});
+
+document.addEventListener('click', e => {
+  if (!contextMenu.contains(e.target)) contextMenu.classList.remove('show');
+  if (!e.target.closest('.export-btn')) document.getElementById('export-dropdown').classList.remove('show');
+});
+
 window.addEventListener('resize', resize);
 
-// -- Coordinate math --
-function screenToCanvas(sx, sy) {
-  return { x: (sx - transform.x) / transform.k, y: (sy - transform.y) / transform.k };
-}
-
-function hitTest(cx, cy) {
-  for (const n of nodes) {
-    if (!n.x || !n.y) continue;
-    const size = (NODE_SIZE[n.kind] || 20) * 0.5 + 4;
-    if (Math.abs(cx - n.x) < size && Math.abs(cy - n.y) < size) return n;
-  }
-  return null;
-}
-
-// -- Selection --
 function selectNode(node) {
   if (selectedNode === node) { closeSidebar(); return; }
   selectedNode = node;
   render();
-  sidebarHeader.innerHTML = `
-    <span class="label">${node.kind}</span>
-    <span class="name">${node.label}</span>
-    <button class="close" onclick="closeSidebar()">✕</button>
-  `;
+  sidebarHeader.innerHTML =
+    '<span class="label">' + node.kind + '</span>' +
+    '<span class="name">' + node.label + '</span>' +
+    '<button class="close" onclick="closeSidebar()">✕</button>';
   sidebarContent.innerHTML = '<div style="padding:16px;color:#8b949e">Loading...</div>';
   sidebar.classList.add('open');
-  fetch(`/api/file?path=${encodeURIComponent(node.filePath)}`)
+  legend.classList.toggle('shifted-right', true);
+  fetch('/api/file?path=' + encodeURIComponent(node.filePath))
     .then(r => r.json())
     .then(data => {
       sidebarContent.innerHTML = data.lines.map((l, i) => {
-        const hl = (i + 1) >= node.line - 2 && (i + 1) <= node.line + 2 ? ' highlight' : '';
-        return `<div class="line${hl}"><span class="line-num">${l.line}</span><span class="line-code">${escapeHtml(l.text)}</span></div>`;
+        const hl = (i + 1) >= node.line - 20 && (i + 1) <= node.line + 20 ? ' highlight' : '';
+        return '<div class="line' + hl + '"><span class="line-num">' + l.line + '</span><span class="line-code">' + highlightSyntax(escapeHtml(l.text)) + '</span></div>';
       }).join('');
+      const hlLine = sidebarContent.querySelector('.line.highlight');
+      if (hlLine) hlLine.scrollIntoView({ block: 'center', behavior: 'smooth' });
     })
     .catch(() => {
       sidebarContent.innerHTML = '<div style="padding:16px;color:#f85149">Failed to load file</div>';
@@ -208,20 +479,70 @@ function selectNode(node) {
 window.closeSidebar = function() {
   selectedNode = null;
   sidebar.classList.remove('open');
+  legend.classList.remove('shifted-right');
   render();
 };
 
-function escapeHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escapeHtml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
-// -- Render --
+function highlightSyntax(s) {
+  return s
+    .replace(/(\/\/[^\n]*)/g, '<span class="token-comment">$1</span>')
+    .replace(/(\/\*[\s\S]*?\*\/)/g, '<span class="token-comment">$1</span>')
+    .replace(/(["'`])(?:(?!\1|\\).|\\.)*?\1/g, '<span class="token-string">$&</span>')
+    .replace(/\b(\d+\.?\d*)\b/g, '<span class="token-number">$1</span>')
+    .replace(/\b(import|export|from|return|if|else|for|while|do|switch|case|default|break|continue|function|class|interface|type|enum|const|let|var|new|this|super|async|await|yield|throw|try|catch|finally|extends|implements|with|in|of|typeof|instanceof|void|delete|package|module|null|undefined|true|false)\b/g, '<span class="token-keyword">$1</span>')
+    .replace(/\b([A-Z]\w+)\b/g, '<span class="token-type">$1</span>');
+}
+
+function updateZoomLevel() {
+  zoomLevelEl.textContent = Math.round(transform.k * 100) + '%';
+}
+window.resetZoom = function() {
+  if (sim) sim.stop();
+  simSettled = true;
+  transform.x = 0;
+  transform.y = 0;
+  transform.k = 1;
+  updateZoomLevel();
+  render();
+};
+
+function computeDirectoryClusters() {
+  const dirMap = new Map();
+  for (const n of nodes) {
+    if (n.kind !== 'file' || n.x == null) continue;
+    const dir = n.filePath.substring(0, n.filePath.lastIndexOf('/')) || '/';
+    if (!dirMap.has(dir)) dirMap.set(dir, []);
+    dirMap.get(dir).push(n);
+  }
+  directoryClusters = [];
+  for (const [dir, group] of dirMap) {
+    if (group.length < 2) continue;
+    const xs = group.map(n => n.x);
+    const ys = group.map(n => n.y);
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const minY = Math.min(...ys), maxY = Math.max(...ys);
+    const pad = 30;
+    directoryClusters.push({
+      dir: dir,
+      minX: minX - pad, maxX: maxX + pad,
+      minY: minY - pad, maxY: maxY + pad,
+      cx: (minX + maxX) / 2,
+      cy: (minY + maxY) / 2,
+      label: dir.split('/').pop() || dir,
+    });
+  }
+}
+
 function render() {
   const w = container.clientWidth, h = container.clientHeight;
   ctx.clearRect(0, 0, w, h);
 
-  // Background grid
   ctx.save();
   ctx.translate(transform.x, transform.y);
   ctx.scale(transform.k, transform.k);
+
   const gridSize = 40;
   ctx.strokeStyle = '#161b22';
   ctx.lineWidth = 1 / transform.k;
@@ -238,64 +559,143 @@ function render() {
   }
   ctx.stroke();
 
-  // Edges
+  const hasHover = !!hoveredNode;
+  const hasFocus = !!focusNode;
+
+  for (const dc of directoryClusters) {
+    if (dc.minX > maxX || dc.maxX < minX || dc.minY > maxY || dc.maxY < minY) continue;
+    const cx = (dc.minX + dc.maxX) / 2;
+    const cy = dc.minY;
+    ctx.fillStyle = '#161b22';
+    ctx.strokeStyle = '#21262d';
+    ctx.lineWidth = 1 / transform.k;
+    const rw = dc.maxX - dc.minX;
+    const bh = dc.maxY - dc.minY;
+    const rr = 8 / transform.k;
+    ctx.beginPath();
+    ctx.moveTo(dc.minX + rr, dc.minY);
+    ctx.lineTo(dc.maxX - rr, dc.minY);
+    ctx.quadraticCurveTo(dc.maxX, dc.minY, dc.maxX, dc.minY + rr);
+    ctx.lineTo(dc.maxX, dc.maxY - rr);
+    ctx.quadraticCurveTo(dc.maxX, dc.maxY, dc.maxX - rr, dc.maxY);
+    ctx.lineTo(dc.minX + rr, dc.maxY);
+    ctx.quadraticCurveTo(dc.minX, dc.maxY, dc.minX, dc.maxY - rr);
+    ctx.lineTo(dc.minX, dc.minY + rr);
+    ctx.quadraticCurveTo(dc.minX, dc.minY, dc.minX + rr, dc.minY);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    if (transform.k > 0.3) {
+      ctx.fillStyle = '#30363d';
+      ctx.font = Math.max(9, Math.round(10 * transform.k)) + 'px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(dc.label, cx, cy - 4 / transform.k);
+    }
+  }
+
   for (const e of edges) {
     if (!e.source.x || !e.target.x) continue;
     const sx = e.source.x, sy = e.source.y;
     const tx = e.target.x, ty = e.target.y;
-    ctx.strokeStyle = COLORS[`edge_${e.kind}`] || '#8b949e';
-    ctx.lineWidth = 1.5 / transform.k;
-    if (hoveredNode && (e.source === hoveredNode || e.target === hoveredNode)) {
-      ctx.lineWidth = 2.5 / transform.k;
-    }
-    ctx.globalAlpha = (hoveredNode && e.source !== hoveredNode && e.target !== hoveredNode) ? 0.08 : 0.3;
+
+    let related = false;
+    let isFocusRelated = false;
+    if (hasHover && (e.source === hoveredNode || e.target === hoveredNode)) related = true;
+    if (hasFocus && (e.source === focusNode || e.target === focusNode)) isFocusRelated = true;
+
+    ctx.strokeStyle = COLORS['edge_' + e.kind] || '#8b949e';
+    ctx.lineWidth = (related || isFocusRelated) ? 2.5 / transform.k : 1.2 / transform.k;
+
+    let alpha = 0.3;
+    if (hasHover && !related) alpha = 0.06;
+    if (hasFocus && isFocusRelated) alpha = 0.7;
+    if (hasFocus && !isFocusRelated) alpha = 0.04;
+    ctx.globalAlpha = alpha;
+
     ctx.beginPath();
     ctx.moveTo(sx, sy);
-    const dx = tx - sx, dy = ty - sy;
     ctx.lineTo(tx, ty);
     ctx.stroke();
     ctx.globalAlpha = 1;
+
+    if (e.label && (related || isFocusRelated) && transform.k > 0.4) {
+      const mx = (sx + tx) / 2, my = (sy + ty) / 2;
+      ctx.fillStyle = '#8b949e';
+      ctx.font = Math.max(8, Math.round(9 * transform.k)) + 'px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(e.label, mx, my - 3 / transform.k);
+    }
   }
 
-  // Nodes
-  const drawnNodes = nodes.filter(n => n.x != null);
-  drawnNodes.sort((a, b) => (hoveredNode === a ? 1 : 0) - (hoveredNode === b ? 1 : 0));
+  const drawnNodes = nodes.filter(n => n.x != null && !hiddenKinds[n.kind]);
+
+  if (hasFocus) {
+    drawnNodes.sort((a, b) => {
+      if (a === focusNode) return 1; if (b === focusNode) return -1;
+      const aRel = a === focusNode || edges.some(e => (e.source === a || e.target === a) && (e.source === focusNode || e.target === focusNode));
+      const bRel = b === focusNode || edges.some(e => (e.source === b || e.target === b) && (e.source === focusNode || e.target === focusNode));
+      if (aRel && !bRel) return 1;
+      if (!aRel && bRel) return -1;
+      return 0;
+    });
+  } else {
+    drawnNodes.sort((a, b) => {
+      if (a === hoveredNode) return 1; if (b === hoveredNode) return -1;
+      return 0;
+    });
+  }
+
   for (const n of drawnNodes) {
+    if (hiddenKinds[n.kind]) continue;
     const size = (NODE_SIZE[n.kind] || 20) * 0.5;
     const isHover = n === hoveredNode;
     const isSel = n === selectedNode;
+    const isMatch = searchTerm && matchedNodes.includes(n);
+    const isFocus = n === focusNode;
+    const isFocusRel = hasFocus && !isFocus && edges.some(e => (e.source === n || e.target === n) && (e.source === focusNode || e.target === focusNode));
 
     ctx.save();
     ctx.translate(n.x, n.y);
 
-    // Glow
-    if (isHover || isSel) {
-      ctx.shadowColor = COLORS[n.kind] || '#8b949e';
-      ctx.shadowBlur = isSel ? 20 : 12;
-    }
+    let glowColor = null;
+    let glowBlur = 0;
+    if (isSel) { glowColor = '#58a6ff'; glowBlur = 20; }
+    else if (isHover) { glowColor = COLORS[n.kind] || '#8b949e'; glowBlur = 12; }
+    else if (isMatch) { glowColor = '#f0883e'; glowBlur = 16; }
+    else if (isFocus) { glowColor = '#58a6ff'; glowBlur = 16; }
+    if (glowColor) { ctx.shadowColor = glowColor; ctx.shadowBlur = glowBlur; }
 
-    // Shape
     ctx.beginPath();
     const color = COLORS[n.kind] || '#8b949e';
-    const borderColor = isHover ? '#e6edf3' : (isSel ? '#58a6ff' : '#30363d');
-    const borderWidth = isSel ? 2.5 : (isHover ? 2 : 1);
+    let borderColor = '#30363d';
+    if (isSel) borderColor = '#58a6ff';
+    else if (isHover) borderColor = '#e6edf3';
+    else if (isMatch) borderColor = '#f0883e';
+    else if (isFocus) borderColor = '#58a6ff';
+    else if (isFocusRel && hasFocus) borderColor = '#79c0ff';
+
+    let borderWidth = 1;
+    if (isSel) borderWidth = 2.5;
+    else if (isHover) borderWidth = 2;
+    else if (isFocus) borderWidth = 2;
+    else if (isMatch) borderWidth = 2;
+
     const r = size;
 
     if (n.kind === 'file') {
-      // Circle
       ctx.arc(0, 0, r, 0, Math.PI * 2);
     } else if (n.kind === 'function') {
-      // Diamond
       ctx.moveTo(0, -r); ctx.lineTo(r, 0); ctx.lineTo(0, r); ctx.lineTo(-r, 0); ctx.closePath();
     } else if (n.kind === 'class') {
-      // Rounded rect
-      const rr = 4 / transform.k;
+      const rr = Math.min(4 / transform.k, r);
       ctx.moveTo(-r, -r + rr); ctx.quadraticCurveTo(-r, -r, -r + rr, -r);
       ctx.lineTo(r - rr, -r); ctx.quadraticCurveTo(r, -r, r, -r + rr);
       ctx.lineTo(r, r - rr); ctx.quadraticCurveTo(r, r, r - rr, r);
-      ctx.lineTo(-r + rr, r); ctx.quadraticCurveTo(-r, r, -r, r - rr); ctx.closePath();
+      ctx.lineTo(-r + rr, r); ctx.quadraticCurveTo(-r, r, -r, r - rr);
+      ctx.closePath();
     } else if (n.kind === 'interface' || n.kind === 'type') {
-      // Hexagon
       for (let i = 0; i < 6; i++) {
         const angle = (Math.PI / 3) * i - Math.PI / 6;
         ctx.lineTo(r * Math.cos(angle), r * Math.sin(angle));
@@ -310,13 +710,16 @@ function render() {
     ctx.strokeStyle = borderColor;
     ctx.lineWidth = borderWidth / transform.k;
     ctx.stroke();
-
     ctx.shadowBlur = 0;
 
-    // Label
     if (transform.k > 0.3) {
-      ctx.fillStyle = hoveredNode === n ? '#e6edf3' : '#8b949e';
-      ctx.font = `${Math.max(9, Math.round(11 * transform.k))}px system-ui, sans-serif`;
+      let textColor = '#8b949e';
+      if (isHover) textColor = '#e6edf3';
+      else if (isMatch) textColor = '#f0883e';
+      else if (isFocus) textColor = '#e6edf3';
+      else if (isFocusRel && hasFocus) textColor = '#79c0ff';
+      ctx.fillStyle = textColor;
+      ctx.font = Math.max(9, Math.round(11 * transform.k)) + 'px system-ui, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
       const label = n.label.length > 18 ? n.label.slice(0, 16) + '..' : n.label;
@@ -329,23 +732,23 @@ function render() {
   ctx.restore();
 }
 
-// -- Layout --
 function initGraph(data) {
   graphData = data;
   const nm = new Map();
   nodes = data.graph.nodes.map(n => {
-    const obj = { ...n, x: null, y: null, vx: 0, vy: 0 };
+    const obj = Object.assign({}, n, { x: null, y: null, vx: 0, vy: 0 });
     nm.set(n.id, obj);
     return obj;
   });
   nodeMap = nm;
-  edges = data.graph.edges.map(e => ({
-    ...e,
-    source: nm.get(e.source),
-    target: nm.get(e.target),
-  })).filter(e => e.source && e.target);
 
-  // Center nodes
+  let droppedEdges = 0;
+  edges = data.graph.edges.map(e => Object.assign({}, e, { source: nm.get(e.source), target: nm.get(e.target) })).filter(e => {
+    if (!e.source || !e.target) { droppedEdges++; return false; }
+    return true;
+  });
+  if (droppedEdges > 0) console.warn('Dropped ' + droppedEdges + ' edges with missing nodes');
+
   const cx = container.clientWidth / 2, cy = container.clientHeight / 2;
   nodes.forEach((n, i) => {
     const angle = (i / nodes.length) * Math.PI * 2;
@@ -354,6 +757,7 @@ function initGraph(data) {
     n.y = cy + rad * Math.sin(angle);
   });
 
+  simSettled = false;
   sim = d3.forceSimulation(nodes)
     .force('link', d3.forceLink(edges).id(d => d.id).distance(d => {
       if (d.kind === 'contains') return 60;
@@ -363,45 +767,263 @@ function initGraph(data) {
     .force('charge', d3.forceManyBody().strength(-600))
     .force('center', d3.forceCenter(cx, cy))
     .force('collision', d3.forceCollide().radius(d => NODE_SIZE[d.kind] || 20))
-    .alphaDecay(0.02)
-    .on('tick', () => { render(); });
+    .alphaDecay(0.05)
+    .on('tick', () => {
+      computeDirectoryClusters();
+      render();
+    })
+    .on('end', () => { simSettled = true; });
 
-  // Stats
   updateStats(data);
   buildLegend();
   statusBar.classList.remove('show');
+  updateZoomLevel();
 }
 
 function updateStats(data) {
   const s = data.stats;
-  toolbar.innerHTML = `
-    <span class="brand">codemapper</span>
-    <span class="sep"></span>
-    <span class="stat"><b>${s.files}</b> files</span>
-    <span class="stat"><b>${s.functions}</b> functions</span>
-    <span class="stat"><b>${s.classes}</b> types</span>
-    <span class="stat"><b>${s.imports}</b> imports</span>
-    <span class="sep"></span>
-    <span class="stat"><b>${nodes.length}</b> nodes · <b>${edges.length}</b> edges</span>
-  `;
+  document.getElementById('stats').innerHTML =
+    '<span class="stat"><b>' + s.files + '</b> files</span>' +
+    '<span class="stat"><b>' + s.functions + '</b> funcs</span>' +
+    '<span class="stat"><b>' + s.classes + '</b> types</span>' +
+    '<span class="stat"><b>' + s.imports + '</b> imports</span>' +
+    '<span class="stat"><b>' + nodes.length + '</b> nodes · <b>' + edges.length + '</b> edges</span>';
 }
 
 function buildLegend() {
-  legend.innerHTML = Object.entries(COLORS).filter(([k]) => !k.startsWith('edge_') && k !== 'bg').map(([k, v]) =>
-    `<div class="legend-item"><div class="legend-dot" style="background:${v}"></div>${k}</div>`
-  ).join('');
+  legend.innerHTML = Object.entries(COLORS)
+    .filter(([k]) => !k.startsWith('edge_') && k !== 'bg' && k !== 'directory')
+    .map(([k, v]) => '<div class="legend-item"><div class="legend-dot" style="background:' + v + '"></div>' + k + '</div>')
+    .join('');
 }
 
-// -- Init --
+function doSearch(term) {
+  searchTerm = term.toLowerCase().trim();
+  matchedNodes = [];
+  if (!searchTerm) {
+    searchCount.textContent = '';
+    searchCount.className = '';
+    render();
+    return;
+  }
+  const visible = nodes.filter(n => !hiddenKinds[n.kind]);
+  matchedNodes = visible.filter(n =>
+    n.label.toLowerCase().includes(searchTerm) ||
+    n.filePath.toLowerCase().includes(searchTerm)
+  );
+  searchCount.textContent = matchedNodes.length ? matchedNodes.length : '0';
+  searchCount.className = matchedNodes.length ? 'has-results' : '';
+
+  if (matchedNodes.length === 1) {
+    panToNode(matchedNodes[0]);
+  } else if (matchedNodes.length > 1) {
+    const xs = [], ys = [];
+    for (const n of matchedNodes) { if (n.x != null) xs.push(n.x); if (n.y != null) ys.push(n.y); }
+    if (xs.length && ys.length) {
+      const minX = Math.min(...xs), maxX = Math.max(...xs);
+      const minY = Math.min(...ys), maxY = Math.max(...ys);
+      const gcx = (minX + maxX) / 2, gcy = (minY + maxY) / 2;
+      const pad = 150;
+      const sx = container.clientWidth / (maxX - minX + pad * 2);
+      const sy = container.clientHeight / (maxY - minY + pad * 2);
+      const k = Math.min(sx, sy, 2);
+      transform.k = Math.max(k, 0.1);
+      transform.x = container.clientWidth / 2 - gcx * transform.k;
+      transform.y = container.clientHeight / 2 - gcy * transform.k;
+      updateZoomLevel();
+    }
+  }
+  render();
+}
+
+function panToNode(node) {
+  if (!node.x || !node.y) return;
+  const targetK = Math.min(1.5, 1200 / Math.max(container.clientWidth, container.clientHeight));
+  transform.k = targetK;
+  transform.x = container.clientWidth / 2 - node.x * transform.k;
+  transform.y = container.clientHeight / 2 - node.y * transform.k;
+  updateZoomLevel();
+  render();
+}
+
+searchInput.addEventListener('input', e => doSearch(e.target.value));
+searchInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && matchedNodes.length > 0) selectNode(matchedNodes[0]);
+  if (e.key === 'Escape') { searchInput.blur(); searchInput.value = ''; doSearch(''); }
+  e.stopPropagation();
+});
+
+document.addEventListener('keydown', e => {
+  if (document.activeElement === searchInput) return;
+  if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+
+  const PAN = 60;
+  const ZOOM = 1.15;
+
+  switch (e.key) {
+    case 'ArrowLeft': e.preventDefault(); transform.x += PAN; render(); break;
+    case 'ArrowRight': e.preventDefault(); transform.x -= PAN; render(); break;
+    case 'ArrowUp': e.preventDefault(); transform.y += PAN; render(); break;
+    case 'ArrowDown': e.preventDefault(); transform.y -= PAN; render(); break;
+    case '+': case '=': e.preventDefault(); transform.k *= ZOOM; updateZoomLevel(); render(); break;
+    case '-': case '_': e.preventDefault(); transform.k /= ZOOM; updateZoomLevel(); render(); break;
+    case 'Escape': contextMenu.classList.remove('show'); focusNode = null; closeSidebar(); break;
+    case '/': e.preventDefault(); searchInput.focus(); break;
+    case 'k': if (e.ctrlKey || e.metaKey) { e.preventDefault(); searchInput.focus(); } break;
+    case '0': if (e.ctrlKey || e.metaKey) { e.preventDefault(); resetZoom(); } break;
+  }
+});
+
+let lastTouchDist = 0;
+let touchPanStart = null;
+
+container.addEventListener('touchstart', e => {
+  if (e.touches.length === 1) {
+    const t = e.touches[0];
+    const p = screenToCanvas(t.clientX, t.clientY);
+    const hit = hitTest(p.x, p.y);
+    if (hit) { isDragging = true; dragNode = hit; if (sim && !simSettled) sim.alphaTarget(0.3).restart(); }
+    else { isPanning = true; touchPanStart = { x: t.clientX - transform.x, y: t.clientY - transform.y }; }
+  } else if (e.touches.length === 2) {
+    isPanning = false; isDragging = false;
+    const t1 = e.touches[0], t2 = e.touches[1];
+    lastTouchDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+  }
+}, { passive: true });
+
+container.addEventListener('touchmove', e => {
+  if (e.touches.length === 1) {
+    const t = e.touches[0];
+    if (isDragging && dragNode) {
+      const p = screenToCanvas(t.clientX, t.clientY);
+      dragNode.fx = p.x; dragNode.fy = p.y;
+      if (sim && simSettled) { sim.alphaTarget(0.15).restart(); simSettled = false; }
+      render();
+    } else if (isPanning) {
+      transform.x = t.clientX - touchPanStart.x;
+      transform.y = t.clientY - touchPanStart.y;
+      render();
+    }
+  } else if (e.touches.length === 2) {
+    const t1 = e.touches[0], t2 = e.touches[1];
+    const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+    const cx = (t1.clientX + t2.clientX) / 2, cy = (t1.clientY + t2.clientY) / 2;
+    if (lastTouchDist > 0) {
+      const f = dist / lastTouchDist;
+      transform.x = cx - (cx - transform.x) * f;
+      transform.y = cy - (cy - transform.y) * f;
+      transform.k *= f;
+      updateZoomLevel();
+    }
+    lastTouchDist = dist;
+    render();
+  }
+}, { passive: true });
+
+container.addEventListener('touchend', e => {
+  if (isDragging && dragNode) {
+    if (sim) { sim.alphaTarget(0); if (sim.alpha() < 0.005) sim.stop(); }
+    dragNode.fx = null; dragNode.fy = null;
+    isDragging = false; dragNode = null;
+  }
+  isPanning = false; lastTouchDist = 0; touchPanStart = null;
+}, { passive: true });
+
+window.copyPath = function(fp) {
+  navigator.clipboard.writeText(fp).catch(() => {});
+  contextMenu.classList.remove('show');
+};
+
+window.setFocusNode = function(idx) {
+  focusNode = nodes[idx];
+  contextMenu.classList.remove('show');
+  render();
+};
+
+window.focusKind = function(kind) {
+  for (const k of ['file', 'function', 'class', 'interface', 'type', 'module', 'call']) {
+    hiddenKinds[k] = k !== kind;
+  }
+  updateFilterButtons();
+  contextMenu.classList.remove('show');
+  render();
+};
+
+window.hideKind = function(kind) {
+  hiddenKinds[kind] = !hiddenKinds[kind];
+  updateFilterButtons();
+  contextMenu.classList.remove('show');
+  render();
+};
+
+window.toggleFilter = function(kind) {
+  if (kind === 'file' || kind === 'function' || kind === 'class' || kind === 'interface' || kind === 'type') {
+    hiddenKinds[kind] = !hiddenKinds[kind];
+    updateFilterButtons();
+    render();
+  }
+};
+
+function updateFilterButtons() {
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    const kind = btn.getAttribute('data-kind');
+    if (hiddenKinds[kind]) btn.classList.add('hidden-kind');
+    else btn.classList.remove('hidden-kind');
+  });
+}
+
+window.toggleExport = function(e) {
+  const dd = document.getElementById('export-dropdown');
+  dd.classList.toggle('show');
+  e.stopPropagation();
+};
+
+window.exportPNG = function() {
+  document.getElementById('export-dropdown').classList.remove('show');
+  const dpr = window.devicePixelRatio || 1;
+  const exportCanvas = document.createElement('canvas');
+  exportCanvas.width = container.clientWidth * dpr;
+  exportCanvas.height = container.clientHeight * dpr;
+  const exportCtx = exportCanvas.getContext('2d');
+  exportCtx.fillStyle = '#0d1117';
+  exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+  exportCtx.drawImage(canvas, 0, 0);
+  exportCanvas.toBlob(blob => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'codemapper-export.png';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+};
+
+window.exportJSON = function() {
+  document.getElementById('export-dropdown').classList.remove('show');
+  const data = JSON.stringify(graphData, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'codemapper-export.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+
 async function init() {
+  if (typeof d3 === 'undefined') {
+    showError('D3.js failed to load. Check your internet connection and reload.');
+    statusBar.classList.remove('show');
+    return;
+  }
   statusBar.classList.add('show');
   try {
     const res = await fetch('/api/analyze');
+    if (!res.ok) throw new Error('Server returned ' + res.status);
     const data = await res.json();
+    if (data.error) throw new Error(data.error);
     initGraph(data);
   } catch (err) {
-    statusBar.innerHTML = 'Error analyzing codebase';
-    console.error(err);
+    showError('Failed to analyze codebase: ' + err.message);
+    statusBar.classList.remove('show');
   }
   resize();
 }

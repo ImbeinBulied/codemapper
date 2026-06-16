@@ -1,11 +1,18 @@
 export interface GraphNode {
   id: string;
   label: string;
-  kind: 'file' | 'function' | 'class' | 'interface' | 'type' | 'module' | 'call';
+  kind: 'file' | 'function' | 'class' | 'interface' | 'type' | 'module' | 'call' | 'directory';
   filePath: string;
   line: number;
   col: number;
   description?: string;
+}
+
+export interface Config {
+  include?: string[];
+  exclude?: string[];
+  languages?: string[];
+  nodeColors?: Record<string, string>;
 }
 
 export interface GraphEdge {
