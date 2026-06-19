@@ -2,23 +2,30 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Config } from './graph/index.js';
 
-const CONFIG_FILE = '.codemaperrc.json';
+// Support both correct spelling and old typo for backwards compatibility
+const CONFIG_FILES = ['.codemapperrc.json', '.codemaperrc.json'];
 const CONFIG_FIELDS = ['include', 'exclude', 'languages', 'nodeColors'];
 
 export function loadConfig(dir: string): Config {
-  const configPath = path.join(dir, CONFIG_FILE);
-  try {
-    if (fs.existsSync(configPath)) {
-      const raw = fs.readFileSync(configPath, 'utf-8');
-      const parsed = JSON.parse(raw);
-      const config: Config = {};
-      if (Array.isArray(parsed.include)) config.include = parsed.include;
-      if (Array.isArray(parsed.exclude)) config.exclude = parsed.exclude;
-      if (Array.isArray(parsed.languages)) config.languages = parsed.languages;
-      if (parsed.nodeColors && typeof parsed.nodeColors === 'object') config.nodeColors = parsed.nodeColors;
-      return config;
-    }
-  } catch { }
+  for (const configFile of CONFIG_FILES) {
+    const configPath = path.join(dir, configFile);
+    try {
+      if (fs.existsSync(configPath)) {
+        const raw = fs.readFileSync(configPath, 'utf-8');
+        const parsed = JSON.parse(raw);
+        const config: Config = {};
+        if (Array.isArray(parsed.include)) config.include = parsed.include;
+        if (Array.isArray(parsed.exclude)) config.exclude = parsed.exclude;
+        if (Array.isArray(parsed.languages)) config.languages = parsed.languages;
+        if (parsed.nodeColors && typeof parsed.nodeColors === 'object') config.nodeColors = parsed.nodeColors;
+        // Warn if using old filename
+        if (configFile === '.codemaperrc.json') {
+          console.warn('  Note: Rename .codemaperrc.json → .codemapperrc.json (typo fix)');
+        }
+        return config;
+      }
+    } catch { }
+  }
   return {};
 }
 

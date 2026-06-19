@@ -36,4 +36,13 @@ export interface AnalysisResult {
     classes: number;
     imports: number;
   };
+  cycles?: CycleInfo[];
+  analytics?: import('./analytics.js').AnalyticsResult;
+}
+
+export interface CycleInfo {
+  /** The nodes involved in the cycle (display order) */
+  nodes: string[];
+  /** Edge kinds that form the cycle */
+  edgeKind: string;
 }

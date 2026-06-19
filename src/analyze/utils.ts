@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Config } from '../graph/index.js';
 
-export const SKIP_DIRS = /node_modules|\.git|dist|build|target|__pycache__|\.venv|venv|vendor|\.mypy_cache|\.pytest_cache|\.gradle|\.idea/;
+export const SKIP_DIRS = /node_modules|\.git|dist|build|target|__pycache__|\.venv|venv|vendor|\.mypy_cache|\.pytest_cache|\.gradle|\.idea|coverage|wasm/;
 export const MAX_FILE_SIZE = 1_000_000;
 
 export function isBinary(content: string): boolean {

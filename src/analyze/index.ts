@@ -8,6 +8,8 @@ import { analyzeGo } from './go.js';
 import { analyzeJava } from './java.js';
 import { loadConfig } from '../config.js';
 import { parseWithTreesitter, initTreesitter, tsParserAvailable } from './treesitter.js';
+import { detectCycles } from '../graph/cycles.js';
+import { analyzeGraph } from '../graph/analytics.js';
 
 const LANG_DETECTORS: [string, string[]][] = [
   ['typescript', ['.ts', '.tsx', '.js', '.jsx', '.mjs']],
@@ -173,5 +175,8 @@ export async function analyzeCodebase(dir: string, filter?: string): Promise<Ana
     imports: graph.edges.filter(e => e.kind === 'imports').length,
   };
 
-  return { graph, root: resolvedDir, stats };
+  const cycles = detectCycles(graph.nodes, graph.edges);
+  const analytics = analyzeGraph(graph.nodes, graph.edges);
+
+  return { graph, root: resolvedDir, stats, cycles, analytics };
 }

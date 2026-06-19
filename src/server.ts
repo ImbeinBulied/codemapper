@@ -73,7 +73,11 @@ export async function startServer(workspaceDir: string, port: number, options: S
   app.get('/api/analyze', async (_req, res) => {
     try {
       const result = await getCachedResult();
-      res.json(result);
+      // Include cycle count in the response
+      res.json({
+        ...result,
+        cycleCount: result.cycles?.length || 0,
+      });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -126,6 +130,19 @@ export async function startServer(workspaceDir: string, port: number, options: S
   }
 
   app.use(express.static(path.dirname(htmlPath)));
+
+  // Also serve individual viewer files from the viewer directory
+  const viewerDir = path.dirname(htmlPath);
+  app.get('/styles.css', (_req, res) => {
+    const p = path.join(viewerDir, 'styles.css');
+    if (fs.existsSync(p)) res.sendFile(p);
+    else res.status(404).end();
+  });
+  app.get('/bundle.js', (_req, res) => {
+    const p = path.join(viewerDir, 'bundle.js');
+    if (fs.existsSync(p)) res.sendFile(p);
+    else res.status(404).end();
+  });
 
   app.get('*', (_req, res) => {
     if (fs.existsSync(htmlPath)) {

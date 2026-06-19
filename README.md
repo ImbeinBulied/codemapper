@@ -4,6 +4,8 @@ Interactive codebase graph visualizer — infinite canvas for code architecture.
 
 Analyze your codebase and explore its structure as an interactive force-directed graph in the browser.
 
+> **Full reference:** [`CODEMAP.md`](./CODEMAP.md) — architecture, parser pipeline, viewer controls, performance, development guide.
+
 ## Install
 
 ```sh
@@ -16,7 +18,7 @@ Or run without installing:
 npx codemapper view .
 ```
 
-## Usage
+## Quick Start
 
 ```sh
 # Interactive graph view (opens browser)
@@ -25,17 +27,11 @@ codemapper view ./my-project
 # With custom port + file filter
 codemapper view ./my-project --port 8080 --filter '\.ts$'
 
-# Watch for changes (auto-refresh when files change)
-codemapper view ./my-project --watch
-
-# Analyze and print JSON to stdout
+# Analyze and output JSON
 codemapper analyze ./my-project
 
-# Export as SVG for CI / documentation
+# Export SVG for CI / documentation
 codemapper analyze ./my-project --format svg --output graph.svg
-
-# Filter + export
-codemapper analyze ./my-project --filter 'src/' --format json --output graph.json
 ```
 
 ## Features

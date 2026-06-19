@@ -15,7 +15,6 @@ function scriptKindFromPath(filePath: string): ts.ScriptKind {
   return ts.ScriptKind.JS;
 }
 
-/** Get the line (1-indexed) and column (1-indexed) from a TS node. */
 function posToLineCol(text: string, pos: number): { line: number; col: number } {
   let line = 1, col = 1;
   for (let i = 0; i < pos && i < text.length; i++) {
@@ -26,11 +25,8 @@ function posToLineCol(text: string, pos: number): { line: number; col: number } 
 }
 
 const NODE_PREFIX: Record<string, string> = {
-  file: 'file:',
-  function: 'func:',
-  class: 'class:',
-  interface: 'interface:',
-  type: 'type:',
+  file: 'file:', function: 'func:', class: 'class:',
+  interface: 'interface:', type: 'type:',
 };
 
 function nodeId(relPath: string, kind: string, symbol: string): string {
@@ -54,11 +50,20 @@ interface ImportEntry {
   namedAlias?: string;
 }
 
+/** Tracks a call to an imported symbol so we can resolve it cross-file later */
+interface ImportedCallSite {
+  localName: string;
+  sourceModule: string;
+  importedName: string;
+}
+
 interface FileResult {
   nodes: GraphNode[];
   edges: GraphEdge[];
   exports: Map<string, ExportEntry>;
   imports: ImportEntry[];
+  /** Calls made to imported symbols (need cross-file resolution) */
+  importedCalls: ImportedCallSite[];
   localFuncs: Set<string>;
   localSymbols: Map<string, GraphNode>;
 }
@@ -75,6 +80,7 @@ function analyzeFile(
     edges: [],
     exports: new Map(),
     imports: [],
+    importedCalls: [],
     localFuncs: new Set(),
     localSymbols: new Map(),
   };
@@ -342,12 +348,43 @@ function analyzeFile(
 
     if (!name) return;
     if (SKIP_CALLS.has(name)) return;
+
+    // Intra-file call: name matches a local function
     if (result.localFuncs.has(name)) {
       addEdge('calls', fileId, nodeId(relPath, 'function', name), name);
+      return;
     }
+
+    // Cross-file call: name matches an imported symbol — record for resolution in Phase 3
     for (const imp of result.imports) {
       if (imp.localName === name) {
         addEdge('calls', fileId, `module:${imp.sourceModule}`, name);
+        result.importedCalls.push({
+          localName: name,
+          sourceModule: imp.sourceModule,
+          importedName: imp.importedName,
+        });
+        return;
+      }
+    }
+
+    // Namespace access: e.g. `fs.readFileSync(...)` — name would be 'readFileSync'
+    // For property access calls, we already extracted the method name above
+    // Check if we can match the object part
+    if (ts.isPropertyAccessExpression(callee)) {
+      const objName = ts.isIdentifier(callee.expression) ? callee.expression.text : null;
+      if (objName) {
+        for (const imp of result.imports) {
+          if (imp.localName === objName) {
+            addEdge('calls', fileId, `module:${imp.sourceModule}`, `${objName}.${name}`);
+            result.importedCalls.push({
+              localName: `${objName}.${name}`,
+              sourceModule: imp.sourceModule,
+              importedName: imp.importedName,
+            });
+            return;
+          }
+        }
       }
     }
   }
@@ -423,12 +460,25 @@ function resolveModule(
 ): string | null {
   if (!specifier.startsWith('.')) return null; // bare specifier = external
   const dir = path.dirname(path.join(rootDir, importerRelPath));
-  const extensions = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.d.ts', ''];
+  const extensions = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.d.ts'];
   const base = path.resolve(path.join(dir, specifier));
+
+  // Try exact path first (with the specifier's own extension)
+  if (fs.existsSync(base)) return path.normalize(base);
+
+  // Try replacing .js extension with .ts/.tsx (common TS pattern)
+  if (base.endsWith('.js')) {
+    for (const ext of ['.ts', '.tsx']) {
+      const p = base.replace(/\.jsx?$/, ext);
+      if (fs.existsSync(p)) return path.normalize(p);
+    }
+  }
+  // Try appending extensions
   for (const ext of extensions) {
     const p = base + ext;
     if (fs.existsSync(p)) return path.normalize(p);
   }
+  // Try index files
   for (const ext of ['.ts', '.tsx', '.js', '.jsx']) {
     const p = path.join(base, `index${ext}`);
     if (fs.existsSync(p)) return path.normalize(p);
@@ -453,7 +503,7 @@ const SKIP_CALLS = new Set([
 ]);
 
 function isCodeFile(p: string): boolean {
-  return /\.(ts|tsx|js|jsx|mjs)$/.test(p) && !p.endsWith('.d.ts');
+  return /\.(ts|tsx|js|jsx|mjs)$/.test(p) && !p.endsWith('.d.ts') && !p.endsWith('.min.js');
 }
 
 export async function analyzeTypeScript(
@@ -503,7 +553,7 @@ export async function analyzeTypeScript(
     exportMap.set(filePath, fileExports);
   }
 
-  // Phase 3: Resolve cross-file imports → resolved edges
+  // Phase 3: Resolve cross-file imports → resolved edges + call edges
   for (const [filePath, result] of fileResults) {
     const relPath = filePath.startsWith(rootDir)
       ? filePath.slice(rootDir.length).replace(/\\/g, '/')
@@ -528,6 +578,29 @@ export async function analyzeTypeScript(
             target: targetExport.node.id,
             kind: 'imports',
             label: imp.localName,
+          });
+        }
+      }
+    }
+
+    // Resolve imported calls → cross-file call edges
+    for (const call of result.importedCalls) {
+      const resolvedPath = resolveModule(call.sourceModule, relPath, rootDir);
+      if (resolvedPath && exportMap.has(resolvedPath)) {
+        const targetExports = exportMap.get(resolvedPath)!;
+
+        // Try to find the matching exported function
+        // For `import { foo }` and `foo()`, look for export named 'foo'
+        const targetExport = call.importedName === '*'
+          ? targetExports.values().next().value
+          : targetExports.get(call.importedName);
+
+        if (targetExport && targetExport.node.kind === 'function') {
+          dedupEdge({
+            source: `file:${relPath}`,
+            target: targetExport.node.id,
+            kind: 'calls',
+            label: call.localName,
           });
         }
       }
