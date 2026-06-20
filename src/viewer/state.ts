@@ -52,6 +52,7 @@ export let glRunning = false;
 export const WEBGL_THRESHOLD = 500;
 export let directoryClusters: any[] = [];
 export let edgeLabels = false;
+export let contextMenuNode: ViewNode | null = null;
 export let sim: any = null;
 
 // Setters for modules to update state
@@ -78,4 +79,5 @@ export function setLayoutMode(m: typeof layoutMode) { layoutMode = m; }
 export function setShowMinimap(v: boolean) { showMinimap = v; }
 export function setGlRunning(v: boolean) { glRunning = v; }
 export function setDirectoryClusters(d: any[]) { directoryClusters = d; }
+export function setContextMenuNode(n: ViewNode | null) { contextMenuNode = n; }
 export function setSim(s: any) { sim = s; }

@@ -37,17 +37,21 @@ codemapper analyze ./my-project --format svg --output graph.svg
 ## Features
 
 - **Multi-language** — TypeScript, JavaScript, Rust, Python, Go, Java
-- **Force-directed layout** — interactive drag, zoom, pan (canvas-based)
+- **Three layout modes** — Force-directed (D3), Hierarchical (dagre), Grid — toggle with layout button
+- **GPU-accelerated** — WebGL auto-enables at 500+ nodes for smooth rendering
+- **Minimap** — overview + viewport indicator for large codebases (auto-shown at 20+ nodes)
+- **Cycle detection** — circular dependencies highlighted in red
 - **Node filtering** — toggle visibility of files, functions, classes, interfaces, types
 - **Search** — `Ctrl+K` or `/` to search by name or file path
 - **Code sidebar** — click any node to see the surrounding source code with syntax highlighting
 - **Right-click context menu** — copy path, show dependents, filter by kind
 - **Edge labels** — import paths and call names shown on hover
 - **Directory clusters** — bounding boxes group files by parent directory
-- **Export** — PNG snapshot or full graph JSON
+- **Export** — PNG snapshot, JSON graph data
 - **External dependencies** — npm, Cargo, and Go modules auto-detected from manifest files
 - **Touch support** — pinch-to-zoom, drag, and tap on mobile
-- **Keyboard shortcuts** — arrow keys pan, `+/-` zoom, `Esc` close sidebar
+- **Keyboard shortcuts** — arrow keys pan, `+/-` zoom, `Esc` close sidebar, layout toggle
+- **Watch mode** — `--watch` refreshes analysis on file changes
 
 ## Configuration
 
@@ -86,7 +90,7 @@ Options for analyze:
 
 ## Viewer Controls
 
-| Keys | Action |
+| Keys / Action | Action |
 |------|--------|
 | `/` or `Ctrl+K` | Focus search |
 | Arrow keys | Pan |
@@ -94,10 +98,13 @@ Options for analyze:
 | `Ctrl+0` | Reset zoom |
 | `Esc` | Close sidebar / context menu |
 | Left-click node | Inspect file |
-| Right-click node | Context menu |
+| Right-click node | Context menu (copy path, show dependents, filter by kind) |
 | Drag empty space | Pan |
 | Drag node | Reposition |
 | Scroll | Zoom |
+| Layout button | Cycle between Force → Hierarchical → Grid |
+| Cycle button | Toggle cycle dependency highlighting |
+| F / fn / C / I / T buttons | Toggle visibility of files, functions, classes, interfaces, types |
 
 ## Docker
 
@@ -129,9 +136,27 @@ git clone <repo>
 cd codemapper
 npm install
 npm run dev       # run with tsx (no build needed)
-npm run build     # compile TypeScript + bundle viewer
-npm test          # run test suite
+npm run build     # compile TypeScript + bundle viewer (esbuild)
+npm test          # run test suite (vitest, 17+ tests)
 npm run test:watch
+```
+
+### Project structure
+
+```
+src/
+  cli.ts, config.ts, server.ts, export.ts   # CLI + API
+  analyze/                                   # Language parsers (5 languages)
+  graph/                                     # Graph types + analytics
+  viewer/                                    # Frontend (modular TS)
+    main.ts, state.ts, renderer.ts           # Core viewer modules
+    simulation.ts, interaction.ts            # D3 layout + input handling
+    sidebar.ts, search.ts                    # UI panels
+    minimap.ts, dagre-layout.ts              # Minimap + alternative layouts
+    export-helper.ts, colors.ts              # Export + theme
+    index.html, styles.css                   # HTML shell + styles
+    dagre.min.js                              # Vendored dagre (hierarchical layout)
+build-viewer.mjs                              # esbuild bundler for viewer
 ```
 
 ## How It Works
@@ -140,5 +165,5 @@ npm run test:watch
 2. **Language detection** — auto-detects languages by file extension
 3. **Regex parsing** — lightweight per-file analysis extracts imports, functions, classes, types, and calls
 4. **Graph assembly** — merges language results, deduplicates nodes/edges, builds stats
-5. **Viewer** — Express server serves the analysis API and a canvas-based D3 force-directed graph UI
+5. **Viewer** — Express server serves a modular TypeScript viewer (esbuild-bundled) with Canvas 2D + WebGL rendering, D3 force layout, dagre hierarchical layout, minimap, and cycle detection
 6. **Caching** — directory hash (size + mtime) avoids re-analysis on unchanged codebases
