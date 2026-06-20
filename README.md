@@ -37,6 +37,7 @@ codemapper analyze ./my-project --format svg --output graph.svg
 ## Features
 
 - **Multi-language** — TypeScript, JavaScript, Rust, Python, Go, Java
+- **Two analysis modes** — fast regex (default) or AST-level tree-sitter (`--deep`)
 - **Three layout modes** — Force-directed (D3), Hierarchical (dagre), Grid — toggle with layout button
 - **GPU-accelerated** — WebGL auto-enables at 500+ nodes for smooth rendering
 - **Minimap** — overview + viewport indicator for large codebases (auto-shown at 20+ nodes)
@@ -80,12 +81,14 @@ Options for view:
   -p, --port <number>     Port to serve on (default: "5001")
   -f, --filter <pattern>  Filter files by regex pattern
   -w, --watch             Watch for file changes and auto-refresh
+  -d, --deep              Use tree-sitter AST parsing (slower, more accurate)
   --no-open               Do not open browser automatically
 
 Options for analyze:
   -f, --filter <pattern>  Filter files by regex pattern
   -o, --output <file>     Write output to file instead of stdout
   --format <format>       Output format: json (default) or svg
+  -d, --deep              Use tree-sitter AST parsing (slower, more accurate)
 ```
 
 ## Viewer Controls
@@ -121,13 +124,13 @@ docker run -v $(pwd):/workspace codemapper analyze /workspace --format svg --out
 
 ## Supported Languages
 
-| Language | Extensions | Nodes |
-|----------|-----------|-------|
-| TypeScript / JS | `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs` | files, functions, classes, interfaces, type aliases, arrow functions, extends/implements, call edges |
-| Rust | `.rs` | files, functions, structs, enums, traits, impl blocks, type aliases, call edges |
-| Python | `.py` | files, functions, classes, imports, call edges |
-| Go | `.go` | files, functions, structs, interfaces, imports, call edges |
-| Java | `.java` | files, methods, classes, interfaces, enums, extends/implements, imports, call edges |
+| Language | Extensions | Nodes | Deep (`--deep`) |
+|----------|-----------|-------|-----------------|
+| TypeScript / JS | `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs` | files, functions, classes, interfaces, type aliases, arrow functions, extends/implements, call edges | — (regex only) |
+| Rust | `.rs` | files, functions, structs, enums, traits, impl blocks, type aliases, call edges | tree-sitter AST |
+| Python | `.py` | files, functions, classes, imports, call edges | tree-sitter AST |
+| Go | `.go` | files, functions, structs, interfaces, imports, call edges | tree-sitter AST |
+| Java | `.java` | files, methods, classes, interfaces, enums, extends/implements, imports, call edges | tree-sitter AST |
 
 ## Development
 
@@ -163,7 +166,8 @@ build-viewer.mjs                              # esbuild bundler for viewer
 
 1. **File walking** — recursively scans the target directory (every 20 files yields to event loop)
 2. **Language detection** — auto-detects languages by file extension
-3. **Regex parsing** — lightweight per-file analysis extracts imports, functions, classes, types, and calls
+3. **Parsing** — fast regex (default) or tree-sitter AST (`--deep`) for deeper analysis (Python, Rust, Go, Java)
 4. **Graph assembly** — merges language results, deduplicates nodes/edges, builds stats
-5. **Viewer** — Express server serves a modular TypeScript viewer (esbuild-bundled) with Canvas 2D + WebGL rendering, D3 force layout, dagre hierarchical layout, minimap, and cycle detection
-6. **Caching** — directory hash (size + mtime) avoids re-analysis on unchanged codebases
+5. **Cycle detection + analytics** — DFS cycle detection, fan-in/fan-out metrics
+6. **Viewer** — Express server serves a modular TypeScript viewer (esbuild-bundled) with Canvas 2D + WebGL rendering, D3 force layout, dagre hierarchical layout, minimap, and cycle detection
+7. **Caching** — directory hash (size + mtime) avoids re-analysis on unchanged codebases

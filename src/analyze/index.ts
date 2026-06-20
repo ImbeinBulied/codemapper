@@ -94,7 +94,7 @@ function parseExternalDeps(rootDir: string): { nodes: GraphNode[]; edges: GraphE
   return { nodes, edges };
 }
 
-export async function analyzeCodebase(dir: string, filter?: string): Promise<AnalysisResult> {
+export async function analyzeCodebase(dir: string, filter?: string, deep?: boolean): Promise<AnalysisResult> {
   const resolvedDir = path.resolve(dir);
 
   if (!fs.existsSync(resolvedDir)) {
@@ -145,10 +145,12 @@ export async function analyzeCodebase(dir: string, filter?: string): Promise<Ana
 
   // Optional: try tree-sitter for additional accuracy (if WASM grammars available)
   // Tree-sitter can parse languages not covered by regex parsers (C, Ruby, etc.)
-  const tsResult = await parseWithTreesitter(resolvedDir, resolvedDir, config);
-  if (tsResult.nodes.length > 0) {
-    addNodes(tsResult.nodes);
-    addEdges(tsResult.edges);
+  if (deep) {
+    const tsResult = await parseWithTreesitter(resolvedDir, resolvedDir, config);
+    if (tsResult.nodes.length > 0) {
+      addNodes(tsResult.nodes);
+      addEdges(tsResult.edges);
+    }
   }
 
   const extDeps = parseExternalDeps(resolvedDir);

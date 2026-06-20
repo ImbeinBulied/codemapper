@@ -21,12 +21,14 @@ program
   .option('-p, --port <number>', 'Port to serve on', '5001')
   .option('-f, --filter <pattern>', 'Filter files by regex pattern')
   .option('-w, --watch', 'Watch for file changes and auto-refresh')
+  .option('-d, --deep', 'Use tree-sitter AST parsing (slower, more accurate)')
   .option('--no-open', 'Do not open browser automatically')
-  .action(async (dir: string, opts: { port: string; open: boolean; filter?: string; watch?: boolean }) => {
+  .action(async (dir: string, opts: { port: string; open: boolean; filter?: string; watch?: boolean; deep?: boolean }) => {
     try {
       console.log(chalk.cyan(' codemapper ') + chalk.gray(' — analyzing codebase...'));
       const port = parseInt(opts.port, 10);
-      const { url } = await startServer(dir, port, { filter: opts.filter, watch: opts.watch });
+      const { url } = await startServer(dir, port, { filter: opts.filter, watch: opts.watch, deep: opts.deep });
+      console.log(chalk.green(`  Viewer running at ${chalk.bold(url)}`));
       console.log(chalk.green(`  Viewer running at ${chalk.bold(url)}`));
       if (opts.open !== false) {
         await open(url);
@@ -48,9 +50,10 @@ program
   .option('-f, --filter <pattern>', 'Filter files by regex pattern')
   .option('-o, --output <file>', 'Write output to file instead of stdout')
   .option('--format <format>', 'Output format: json or svg', 'json')
-  .action(async (dir: string, opts: { filter?: string; output?: string; format: string }) => {
+  .option('-d, --deep', 'Use tree-sitter AST parsing (slower, more accurate)')
+  .action(async (dir: string, opts: { filter?: string; output?: string; format: string; deep?: boolean }) => {
     try {
-      const result = await analyzeCodebase(dir, opts.filter);
+      const result = await analyzeCodebase(dir, opts.filter, opts.deep);
       const fmt = opts.format.toLowerCase();
       if (fmt === 'svg') {
         const svg = toSVG(result);

@@ -7,8 +7,8 @@
     "codemapper": "./dist/cli.js"
   },
   "scripts": {
-    "build": "tsc && node build-viewer.mjs && node -e \"var f=require('fs');f.cpSync('src/viewer/index.html','dist/viewer/index.html');f.cpSync('src/viewer/styles.css','dist/viewer/styles.css');f.cpSync('node_modules/d3/dist/d3.min.js','dist/viewer/d3.min.js');f.cpSync('node_modules/dagre/dist/dagre.min.js','dist/viewer/dagre.min.js');\"",
-    "postinstall": "node -e \"var fs=require('fs');if(fs.existsSync('src/viewer/index.html')){fs.cpSync('src/viewer/index.html','dist/viewer/index.html',{recursive:true,errorOnExist:false});fs.cpSync('node_modules/d3/dist/d3.min.js','dist/viewer/d3.min.js',{errorOnExist:false})}\"",
+    "build": "tsc && node build-viewer.mjs && node -e \"var f=require('fs');f.cpSync('src/viewer/index.html','dist/viewer/index.html');f.cpSync('src/viewer/styles.css','dist/viewer/styles.css');f.cpSync('node_modules/d3/dist/d3.min.js','dist/viewer/d3.min.js');f.cpSync('node_modules/dagre/dist/dagre.min.js','dist/viewer/dagre.min.js');f.cpSync('wasm','dist/wasm',{recursive:true})\"",
+    "postinstall": "node -e \"var fs=require('fs');if(fs.existsSync('src/viewer/index.html')){fs.cpSync('src/viewer/index.html','dist/viewer/index.html',{recursive:true,errorOnExist:false});fs.cpSync('src/viewer/styles.css','dist/viewer/styles.css',{errorOnExist:false});fs.cpSync('node_modules/d3/dist/d3.min.js','dist/viewer/d3.min.js',{errorOnExist:false});fs.cpSync('node_modules/dagre/dist/dagre.min.js','dist/viewer/dagre.min.js',{errorOnExist:false});fs.cpSync('wasm','dist/wasm',{recursive:true,errorOnExist:false})}\"",
     "test": "vitest run",
     "test:watch": "vitest",
     "start": "node dist/cli.js",

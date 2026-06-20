@@ -11,6 +11,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 interface ServerOptions {
   filter?: string;
   watch?: boolean;
+  deep?: boolean;
 }
 
 interface CacheEntry {
@@ -65,7 +66,7 @@ export async function startServer(workspaceDir: string, port: number, options: S
     if (cache && cache.hash === currentHash) {
       return cache.result;
     }
-    const result = await analyzeCodebase(resolvedDir, options.filter);
+    const result = await analyzeCodebase(resolvedDir, options.filter, options.deep);
     cache = { hash: currentHash, result };
     return result;
   };

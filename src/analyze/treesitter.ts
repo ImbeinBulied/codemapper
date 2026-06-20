@@ -20,6 +20,11 @@
 
 import { GraphNode, GraphEdge, Config } from '../graph/index.js';
 import { readFileSafe, walkFiles } from './utils.js';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+import fs from 'node:fs';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -64,16 +69,28 @@ async function init(wasmDir?: string): Promise<boolean> {
     LanguageCtor = mod.Language;
     await ParserCtor.init();
 
-    // Verify at least one WASM grammar exists
-    const dir = wasmDir || process.env.WASM_DIR || './wasm';
+    const dir = wasmDir || process.env.WASM_DIR || defaultWasmDir();
     const fs = await import('node:fs');
     if (fs.existsSync(dir)) {
       available = fs.readdirSync(dir).some((f: string) => f.endsWith('.wasm'));
+      if (!available) console.warn('tree-sitter: no .wasm files found in', dir);
+    } else {
+      console.warn('tree-sitter: WASM directory not found:', dir);
     }
   } catch {
     available = false;
   }
   return available;
+}
+
+function defaultWasmDir(): string {
+  // Production: WASM files are at <install>/wasm/ relative to the CLI
+  // Development: <project>/wasm/
+  const prod = path.resolve(__dirname, '..', 'wasm');
+  if (fs.existsSync(prod)) return prod;
+  const dev = path.resolve(process.cwd(), 'wasm');
+  if (fs.existsSync(dev)) return dev;
+  return './wasm';
 }
 
 async function loadWasm(lang: LanguageId, wasmDir?: string): Promise<any> {
