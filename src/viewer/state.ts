@@ -48,6 +48,8 @@ export let cycleNodes = new Set<string>();
 export let showCycles = true;
 export let layoutMode: 'force' | 'hierarchical' | 'grid' = 'force';
 export let showMinimap = false;
+export let theme: 'dark' | 'light' = 'dark';
+export let transitioningNodes = new Map<string, number>(); // id → opacity
 export let glRunning = false;
 export const WEBGL_THRESHOLD = 500;
 export let directoryClusters: any[] = [];
@@ -118,6 +120,12 @@ export function setLayoutMode(m: typeof layoutMode) {
 }
 export function setShowMinimap(v: boolean) {
   showMinimap = v;
+}
+export function setTheme(t: 'dark' | 'light') {
+  theme = t;
+}
+export function setTransitioningNodes(m: Map<string, number>) {
+  transitioningNodes = m;
 }
 export function setGlRunning(v: boolean) {
   glRunning = v;

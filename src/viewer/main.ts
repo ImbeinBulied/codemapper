@@ -9,9 +9,11 @@ import {
   WEBGL_THRESHOLD,
   transform,
   setFocusNode,
+  theme,
+  setTheme,
 } from './state.js';
-import { render } from './renderer.js';
-import { initWebGL } from './renderer.js';
+import { render, initWebGL } from './renderer.js';
+import { setTheme as setColorsTheme } from './colors.js';
 import { startForceSimulation } from './simulation.js';
 import { computeDirectoryClusters, updateZoomLevel } from './minimap.js';
 import { initSearch } from './search.js';
@@ -266,6 +268,29 @@ async function loadGraph() {
     statusBar.classList.remove('show');
   }
 }
+
+function applyTheme(t: 'dark' | 'light') {
+  setTheme(t);
+  setColorsTheme(t);
+  document.documentElement.classList.toggle('light', t === 'light');
+  const btn = document.getElementById('theme-btn');
+  if (btn) btn.textContent = t === 'light' ? '\u{1F319}' : '\u{2600}\u{FE0F}';
+  render();
+}
+
+(window as any).toggleTheme = () => {
+  const next = theme === 'dark' ? 'light' : 'dark';
+  applyTheme(next);
+  try {
+    localStorage.setItem('codemapper-theme', next);
+  } catch {}
+};
+
+// Load saved theme on init
+try {
+  const saved = localStorage.getItem('codemapper-theme') as 'dark' | 'light' | null;
+  if (saved && saved !== theme) applyTheme(saved);
+} catch {}
 
 window.addEventListener('resize', resize);
 document.addEventListener('DOMContentLoaded', init);

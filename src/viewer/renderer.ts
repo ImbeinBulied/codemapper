@@ -20,6 +20,7 @@ import {
   simSettled,
   glRunning,
   setGlRunning,
+  transitioningNodes,
   ViewNode,
   ViewEdge,
 } from './state.js';
@@ -140,11 +141,19 @@ function renderCanvas2D() {
     }
   }
 
-  const drawnNodes = nodes.filter((n) => n.x != null && !hiddenKinds[n.kind]);
+  const drawnNodes = nodes.filter((n) => {
+    if (n.x == null) return false;
+    if (!hiddenKinds[n.kind]) return true;
+    return transitioningNodes.has(n.id) && transitioningNodes.get(n.id)! > 0;
+  });
   drawnNodes.sort((a, b) => (a === hoveredNode ? 1 : b === hoveredNode ? -1 : 0));
 
   for (const n of drawnNodes) {
-    if (hiddenKinds[n.kind]) continue;
+    let fadeAlpha = 1;
+    if (hiddenKinds[n.kind]) {
+      fadeAlpha = transitioningNodes.get(n.id) ?? 1;
+      if (fadeAlpha <= 0) continue;
+    }
     const size = (NODE_SIZE[n.kind] || 20) * 0.5;
     const isHover = n === hoveredNode,
       isSel = n === selectedNode;
@@ -176,6 +185,7 @@ function renderCanvas2D() {
       ctx.shadowColor = glowColor;
       ctx.shadowBlur = glowBlur;
     }
+    if (fadeAlpha < 1) ctx.globalAlpha *= fadeAlpha;
     ctx.beginPath();
     let borderColor = '#30363d';
     if (isInCycle) borderColor = '#f85149';
@@ -233,9 +243,22 @@ function renderCanvas2D() {
     }
     ctx.restore();
   }
+
+  // Animate transitions: fade hidden nodes out over ~200ms
+  if (transitioningNodes.size > 0) {
+    for (const [id, alpha] of transitioningNodes) {
+      const next = alpha - 0.08;
+      if (next <= 0) transitioningNodes.delete(id);
+      else transitioningNodes.set(id, next);
+    }
+    // Keep rendering until all transitions complete
+    if (sim && simSettled && transitioningNodes.size > 0) {
+      requestAnimationFrame(() => render());
+    }
+  }
+
   ctx.restore();
 }
-
 let gl = null,
   glProgram = null,
   glCanvas = null;

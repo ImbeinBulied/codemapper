@@ -14,6 +14,25 @@ import { render } from './renderer.js';
   render();
 };
 
+(window as any).toggleTheme = function () {
+  const root = document.documentElement;
+  const isLight = root.classList.toggle('light');
+  const btn = document.getElementById('theme-btn');
+  if (btn) btn.textContent = isLight ? '☀️' : '🌙';
+  localStorage.setItem('codemapper-theme', isLight ? 'light' : 'dark');
+  render();
+};
+
+// Apply saved theme preference
+(function initTheme() {
+  const saved = localStorage.getItem('codemapper-theme');
+  if (saved === 'light') {
+    document.documentElement.classList.add('light');
+    const btn = document.getElementById('theme-btn');
+    if (btn) btn.textContent = '☀️';
+  }
+})();
+
 (window as any).exportPNG = function () {
   document.getElementById('export-dropdown')!.classList.remove('show');
   const container = document.getElementById('canvas-container')!;

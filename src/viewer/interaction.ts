@@ -26,6 +26,7 @@ import {
   setSimSettled,
   setContextMenuNode,
   contextMenuNode,
+  transitioningNodes,
   ViewNode,
   ViewEdge,
 } from './state.js';
@@ -368,7 +369,9 @@ container.addEventListener(
 };
 (window as any).focusKind = (kind: string) => {
   for (const k of ['file', 'function', 'class', 'interface', 'type', 'module', 'call']) {
+    const was = hiddenKinds[k];
     hiddenKinds[k] = k !== kind;
+    if (was !== hiddenKinds[k]) scheduleFade(k);
   }
   updateFilterButtons();
   contextMenu.classList.remove('show');
@@ -376,6 +379,7 @@ container.addEventListener(
 };
 (window as any).hideKind = (kind: string) => {
   hiddenKinds[kind] = !hiddenKinds[kind];
+  scheduleFade(kind);
   updateFilterButtons();
   contextMenu.classList.remove('show');
   render();
@@ -383,10 +387,19 @@ container.addEventListener(
 (window as any).toggleFilter = (kind: string) => {
   if (['file', 'function', 'class', 'interface', 'type'].includes(kind)) {
     hiddenKinds[kind] = !hiddenKinds[kind];
+    scheduleFade(kind);
     updateFilterButtons();
     render();
   }
 };
+
+function scheduleFade(kind: string) {
+  for (const n of nodes) {
+    if (n.kind === kind && n.id) {
+      transitioningNodes.set(n.id, 1);
+    }
+  }
+}
 (window as any).resetZoom = () => {
   if (sim) sim.stop();
   setSimSettled(true);
