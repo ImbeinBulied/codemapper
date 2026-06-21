@@ -1,0 +1,26 @@
+# Auto-label PRs based on changed files
+viewer:
+  - src/viewer/**/*
+
+parser:
+  - src/analyze/**/*
+
+server:
+  - src/server.ts
+
+cli:
+  - src/cli.ts
+
+graph:
+  - src/graph/**/*
+
+docker:
+  - Dockerfile
+  - .dockerignore
+
+ci:
+  - .github/**/*
+
+docs:
+  - README.md
+  - CODEMAP.md
