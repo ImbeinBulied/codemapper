@@ -2,6 +2,8 @@ import express from 'express';
 import path from 'node:path';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
+import http from 'node:http';
+import { WebSocketServer, WebSocket } from 'ws';
 import { fileURLToPath } from 'node:url';
 import { analyzeCodebase } from './analyze/index.js';
 import { loadConfig } from './config.js';
@@ -37,11 +39,15 @@ function hashDir(dir: string): string {
       }
     };
     walk(dir);
-  } catch { }
+  } catch {}
   return hash.digest('hex');
 }
 
-export async function startServer(workspaceDir: string, port: number, options: ServerOptions = {}): Promise<{ server: any; url: string }> {
+export async function startServer(
+  workspaceDir: string,
+  port: number,
+  options: ServerOptions = {},
+): Promise<{ server: any; url: string }> {
   const app = express();
   const resolvedDir = path.resolve(workspaceDir);
 
@@ -60,6 +66,14 @@ export async function startServer(workspaceDir: string, port: number, options: S
   app.use(express.json());
 
   let cache: CacheEntry | null = null;
+  let wsClients: Set<WebSocket> = new Set();
+
+  const broadcast = (msg: object) => {
+    const data = JSON.stringify(msg);
+    for (const ws of wsClients) {
+      if (ws.readyState === WebSocket.OPEN) ws.send(data);
+    }
+  };
 
   const getCachedResult = async () => {
     const currentHash = hashDir(resolvedDir);
@@ -117,7 +131,10 @@ export async function startServer(workspaceDir: string, port: number, options: S
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     const invalidate = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => { cache = null; }, 300);
+      debounceTimer = setTimeout(() => {
+        cache = null;
+        broadcast({ type: 'refresh' });
+      }, 300);
     };
     try {
       fs.watch(resolvedDir, { recursive: true }, (_event, filename) => {
@@ -132,7 +149,6 @@ export async function startServer(workspaceDir: string, port: number, options: S
 
   app.use(express.static(path.dirname(htmlPath)));
 
-  // Also serve individual viewer files from the viewer directory
   const viewerDir = path.dirname(htmlPath);
   app.get('/styles.css', (_req, res) => {
     const p = path.join(viewerDir, 'styles.css');
@@ -154,10 +170,17 @@ export async function startServer(workspaceDir: string, port: number, options: S
   });
 
   return new Promise((resolve) => {
-    const server = app.listen(port, () => {
-      const addr = server.address();
+    const httpServer = http.createServer(app);
+    const wss = new WebSocketServer({ server: httpServer });
+    wss.on('connection', (ws) => {
+      wsClients.add(ws);
+      ws.on('close', () => wsClients.delete(ws));
+      ws.on('error', () => wsClients.delete(ws));
+    });
+    httpServer.listen(port, () => {
+      const addr = httpServer.address();
       const host = typeof addr === 'string' ? addr : `http://localhost:${addr?.port || port}`;
-      resolve({ server, url: host as string });
+      resolve({ server: httpServer, url: host as string });
     });
   });
 }

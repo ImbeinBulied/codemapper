@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Config } from '../graph/index.js';
 
-export const SKIP_DIRS = /node_modules|\.git|dist|build|target|__pycache__|\.venv|venv|vendor|\.mypy_cache|\.pytest_cache|\.gradle|\.idea|coverage|wasm/;
+export const SKIP_DIRS =
+  /node_modules|\.git|dist|build|target|__pycache__|\.venv|venv|vendor|\.mypy_cache|\.pytest_cache|\.gradle|\.idea|coverage|wasm/;
 export const MAX_FILE_SIZE = 1_000_000;
 
 export function isBinary(content: string): boolean {
@@ -37,8 +38,8 @@ export function findLine(lines: string[], name: string): number {
 
 export async function walkFiles(dir: string, config?: Config): Promise<string[]> {
   const results: string[] = [];
-  const excludePatterns = config?.exclude?.map(p => new RegExp(p)) || [];
-  const includePatterns = config?.include?.map(p => new RegExp(p)) || [];
+  const excludePatterns = config?.exclude?.map((p) => new RegExp(p)) || [];
+  const includePatterns = config?.include?.map((p) => new RegExp(p)) || [];
   const hasInclude = includePatterns.length > 0;
   let batch = 0;
 
@@ -48,15 +49,15 @@ export async function walkFiles(dir: string, config?: Config): Promise<string[]>
       for (const entry of entries) {
         const fullPath = path.join(dir, entry.name);
         if (entry.name.startsWith('.') || SKIP_DIRS.test(entry.name)) continue;
-        if (excludePatterns.some(r => r.test(fullPath))) continue;
+        if (excludePatterns.some((r) => r.test(fullPath))) continue;
         if (entry.isDirectory()) {
           await walk(fullPath);
         } else {
-          if (hasInclude && !includePatterns.some(r => r.test(fullPath))) continue;
+          if (hasInclude && !includePatterns.some((r) => r.test(fullPath))) continue;
           results.push(fullPath);
           batch++;
           if (batch % 20 === 0) {
-            await new Promise(resolve => setImmediate(resolve));
+            await new Promise((resolve) => setImmediate(resolve));
           }
         }
       }

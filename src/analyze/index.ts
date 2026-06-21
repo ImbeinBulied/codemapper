@@ -27,13 +27,13 @@ async function detectLanguages(dir: string): Promise<string[]> {
       if (entry.isFile()) {
         const name = entry.name;
         for (const [lang, exts] of LANG_DETECTORS) {
-          if (exts.some(ext => name.endsWith(ext)) && !name.endsWith('.d.ts')) {
+          if (exts.some((ext) => name.endsWith(ext)) && !name.endsWith('.d.ts')) {
             langs.add(lang);
           }
         }
       }
     }
-  } catch { }
+  } catch {}
   return Array.from(langs);
 }
 
@@ -48,12 +48,20 @@ function parseExternalDeps(rootDir: string): { nodes: GraphNode[]; edges: GraphE
       const deps = { ...pkg.dependencies, ...pkg.devDependencies };
       for (const [name] of Object.entries(deps)) {
         const depId = `module:${name}`;
-        if (!nodes.some(n => n.id === depId)) {
-          nodes.push({ id: depId, label: name, kind: 'module', filePath: 'external', line: 1, col: 1, description: 'npm dependency' });
+        if (!nodes.some((n) => n.id === depId)) {
+          nodes.push({
+            id: depId,
+            label: name,
+            kind: 'module',
+            filePath: 'external',
+            line: 1,
+            col: 1,
+            description: 'npm dependency',
+          });
         }
       }
     }
-  } catch { }
+  } catch {}
 
   try {
     const cargoPath = path.join(rootDir, 'Cargo.toml');
@@ -65,14 +73,22 @@ function parseExternalDeps(rootDir: string): { nodes: GraphNode[]; edges: GraphE
           const m = line.match(/^(\w+)\s*=/);
           if (m) {
             const depId = `module:${m[1]}`;
-            if (!nodes.some(n => n.id === depId)) {
-              nodes.push({ id: depId, label: m[1], kind: 'module', filePath: 'external', line: 1, col: 1, description: 'crate dependency' });
+            if (!nodes.some((n) => n.id === depId)) {
+              nodes.push({
+                id: depId,
+                label: m[1],
+                kind: 'module',
+                filePath: 'external',
+                line: 1,
+                col: 1,
+                description: 'crate dependency',
+              });
             }
           }
         }
       }
     }
-  } catch { }
+  } catch {}
 
   try {
     const goModPath = path.join(rootDir, 'go.mod');
@@ -83,13 +99,21 @@ function parseExternalDeps(rootDir: string): { nodes: GraphNode[]; edges: GraphE
         if (m) {
           const name = m[1].split('/').pop() || m[1];
           const depId = `module:${name}`;
-          if (!nodes.some(n => n.id === depId)) {
-            nodes.push({ id: depId, label: name, kind: 'module', filePath: 'external', line: 1, col: 1, description: 'go dependency' });
+          if (!nodes.some((n) => n.id === depId)) {
+            nodes.push({
+              id: depId,
+              label: name,
+              kind: 'module',
+              filePath: 'external',
+              line: 1,
+              col: 1,
+              description: 'go dependency',
+            });
           }
         }
       }
     }
-  } catch { }
+  } catch {}
 
   return { nodes, edges };
 }
@@ -165,16 +189,16 @@ export async function analyzeCodebase(dir: string, filter?: string, deep?: boole
   if (filter) {
     const pattern = new RegExp(filter);
     graph = {
-      nodes: graph.nodes.filter(n => pattern.test(n.filePath)),
-      edges: graph.edges.filter(e => pattern.test(e.source) || pattern.test(e.target)),
+      nodes: graph.nodes.filter((n) => pattern.test(n.filePath)),
+      edges: graph.edges.filter((e) => pattern.test(e.source) || pattern.test(e.target)),
     };
   }
 
   const stats = {
-    files: graph.nodes.filter(n => n.kind === 'file').length,
-    functions: graph.nodes.filter(n => n.kind === 'function').length,
-    classes: graph.nodes.filter(n => n.kind === 'class' || n.kind === 'interface').length,
-    imports: graph.edges.filter(e => e.kind === 'imports').length,
+    files: graph.nodes.filter((n) => n.kind === 'file').length,
+    functions: graph.nodes.filter((n) => n.kind === 'function').length,
+    classes: graph.nodes.filter((n) => n.kind === 'class' || n.kind === 'interface').length,
+    imports: graph.edges.filter((e) => e.kind === 'imports').length,
   };
 
   const cycles = detectCycles(graph.nodes, graph.edges);

@@ -1,20 +1,20 @@
 import { graphData, showCycles, setShowCycles } from './state.js';
 import { render } from './renderer.js';
 
-(window as any).toggleExport = function(e: MouseEvent) {
+(window as any).toggleExport = function (e: MouseEvent) {
   const dd = document.getElementById('export-dropdown')!;
   dd.classList.toggle('show');
   e.stopPropagation();
 };
 
-(window as any).toggleCycles = function() {
+(window as any).toggleCycles = function () {
   setShowCycles(!showCycles);
   const btn = document.getElementById('cycle-btn');
   if (btn) btn.classList.toggle('hidden-kind', !showCycles);
   render();
 };
 
-(window as any).exportPNG = function() {
+(window as any).exportPNG = function () {
   document.getElementById('export-dropdown')!.classList.remove('show');
   const container = document.getElementById('canvas-container')!;
   const dpr = window.devicePixelRatio || 1;
@@ -35,7 +35,7 @@ import { render } from './renderer.js';
   });
 };
 
-(window as any).exportJSON = function() {
+(window as any).exportJSON = function () {
   document.getElementById('export-dropdown')!.classList.remove('show');
   const data = JSON.stringify(graphData, null, 2);
   const blob = new Blob([data], { type: 'application/json' });

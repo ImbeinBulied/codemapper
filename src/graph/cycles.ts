@@ -17,10 +17,7 @@ interface CycleResult {
  * Algorithm: DFS with WHITE/GRAY/BLACK coloring.
  * WHITE = unvisited, GRAY = in current path (ancestor), BLACK = fully explored.
  */
-export function detectCycles(
-  nodes: GraphNode[],
-  edges: GraphEdge[],
-): CycleResult[] {
+export function detectCycles(nodes: GraphNode[], edges: GraphEdge[]): CycleResult[] {
   // Build adjacency list for file → file imports
   const fileNodes = new Set<string>();
   const adj = new Map<string, string[]>();
@@ -36,7 +33,9 @@ export function detectCycles(
     fileNodes.add(tgt);
   }
 
-  const WHITE = 0, GRAY = 1, BLACK = 2;
+  const WHITE = 0,
+    GRAY = 1,
+    BLACK = 2;
   const color = new Map<string, number>();
   const parent = new Map<string, string | null>();
   const cycles: CycleResult[] = [];
@@ -88,7 +87,7 @@ export function detectCycles(
 
 function dedupCycles(cycles: CycleResult[]): CycleResult[] {
   const seen = new Set<string>();
-  return cycles.filter(c => {
+  return cycles.filter((c) => {
     const sorted = [...c.nodes].sort().join(',');
     if (seen.has(sorted)) return false;
     seen.add(sorted);
@@ -100,7 +99,7 @@ function dedupCycles(cycles: CycleResult[]): CycleResult[] {
  * Check if a node is part of any cycle.
  */
 export function isInCycle(nodeId: string, cycles: CycleResult[]): boolean {
-  return cycles.some(c => c.nodes.includes(nodeId));
+  return cycles.some((c) => c.nodes.includes(nodeId));
 }
 
 /**

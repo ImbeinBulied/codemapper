@@ -1,8 +1,15 @@
 // @ts-nocheck — Ported from plain JS. Types refined later.
 import {
-  nodes, nodeMap, transform, directoryClusters,
-  hiddenKinds, edges, showMinimap, setShowMinimap,
-  setDirectoryClusters, ViewNode,
+  nodes,
+  nodeMap,
+  transform,
+  directoryClusters,
+  hiddenKinds,
+  edges,
+  showMinimap,
+  setShowMinimap,
+  setDirectoryClusters,
+  ViewNode,
 } from './state.js';
 import { COLORS } from './colors.js';
 import { render } from './renderer.js';
@@ -12,14 +19,22 @@ const mmCanvas = document.getElementById('mm-canvas') as HTMLCanvasElement;
 const mmViewport = document.getElementById('mm-viewport')!;
 
 export function updateMinimap() {
-  if (!showMinimap || nodes.length < 5) { minimap.style.display = 'none'; return; }
+  if (!showMinimap || nodes.length < 5) {
+    minimap.style.display = 'none';
+    return;
+  }
   minimap.style.display = 'block';
 
-  const w = 160, h = 120;
-  mmCanvas.width = w; mmCanvas.height = h;
+  const w = 160,
+    h = 120;
+  mmCanvas.width = w;
+  mmCanvas.height = h;
   const mmCtx = mmCanvas.getContext('2d')!;
 
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  let minX = Infinity,
+    maxX = -Infinity,
+    minY = Infinity,
+    maxY = -Infinity;
   for (const n of nodes) {
     if (n.x == null) continue;
     if (n.x < minX) minX = n.x;
@@ -27,7 +42,8 @@ export function updateMinimap() {
     if (n.y < minY) minY = n.y;
     if (n.y > maxY) maxY = n.y;
   }
-  const rangeX = maxX - minX || 1, rangeY = maxY - minY || 1;
+  const rangeX = maxX - minX || 1,
+    rangeY = maxY - minY || 1;
   const scale = Math.min(w / rangeX, h / rangeY) * 0.9;
   const ox = (w - rangeX * scale) / 2 - minX * scale;
   const oy = (h - rangeY * scale) / 2 - minY * scale;
@@ -38,7 +54,8 @@ export function updateMinimap() {
   mmCtx.strokeStyle = '#30363d';
   mmCtx.lineWidth = 0.5;
   for (const e of edges) {
-    const src = e.source, tgt = e.target;
+    const src = e.source,
+      tgt = e.target;
     if (!src.x || !tgt.x) continue;
     mmCtx.beginPath();
     mmCtx.moveTo(src.x * scale + ox, src.y * scale + oy);
@@ -69,7 +86,10 @@ minimap.addEventListener('click', (e: MouseEvent) => {
   const mx = e.clientX - rect.left;
   const my = e.clientY - rect.top;
 
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  let minX = Infinity,
+    maxX = -Infinity,
+    minY = Infinity,
+    maxY = -Infinity;
   for (const n of nodes) {
     if (n.x == null) continue;
     if (n.x < minX) minX = n.x;
@@ -77,8 +97,10 @@ minimap.addEventListener('click', (e: MouseEvent) => {
     if (n.y < minY) minY = n.y;
     if (n.y > maxY) maxY = n.y;
   }
-  const rangeX = maxX - minX || 1, rangeY = maxY - minY || 1;
-  const w = 160, h = 120;
+  const rangeX = maxX - minX || 1,
+    rangeY = maxY - minY || 1;
+  const w = 160,
+    h = 120;
   const scale2 = Math.min(w / rangeX, h / rangeY) * 0.9;
   const ox2 = (w - rangeX * scale2) / 2 - minX * scale2;
   const oy2 = (h - rangeY * scale2) / 2 - minY * scale2;
@@ -100,16 +122,22 @@ export function computeDirectoryClusters() {
   const clusters: any[] = [];
   for (const [dir, group] of dirMap) {
     if (group.length < 2) continue;
-    const xs = group.map(n => n.x!);
-    const ys = group.map(n => n.y!);
-    const minX2 = Math.min(...xs), maxX2 = Math.max(...xs);
-    const minY2 = Math.min(...ys), maxY2 = Math.max(...ys);
+    const xs = group.map((n) => n.x!);
+    const ys = group.map((n) => n.y!);
+    const minX2 = Math.min(...xs),
+      maxX2 = Math.max(...xs);
+    const minY2 = Math.min(...ys),
+      maxY2 = Math.max(...ys);
     const pad = 30;
     clusters.push({
-      dir, label: dir.split('/').pop() || dir,
-      minX: minX2 - pad, maxX: maxX2 + pad,
-      minY: minY2 - pad, maxY: maxY2 + pad,
-      cx: (minX2 + maxX2) / 2, cy: (minY2 + maxY2) / 2,
+      dir,
+      label: dir.split('/').pop() || dir,
+      minX: minX2 - pad,
+      maxX: maxX2 + pad,
+      minY: minY2 - pad,
+      maxY: maxY2 + pad,
+      cx: (minX2 + maxX2) / 2,
+      cy: (minY2 + maxY2) / 2,
     });
   }
   setDirectoryClusters(clusters);

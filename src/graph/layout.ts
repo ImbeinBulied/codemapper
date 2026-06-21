@@ -34,7 +34,7 @@ export function layoutHierarchical(
   const g = new dagre.graphlib.Graph();
   g.setDefaultEdgeLabel(() => ({}));
   g.setGraph({
-    rankdir: 'LR',            // Left-to-right layout
+    rankdir: 'LR', // Left-to-right layout
     nodesep: 60,
     ranksep: 100,
     marginx: 40,
@@ -60,7 +60,7 @@ export function layoutHierarchical(
 
   // Extract positions
   const result: LayoutResult = { nodes: [] };
-  const nodeMap = new Map(nodes.map(n => [n.id, n]));
+  const nodeMap = new Map(nodes.map((n) => [n.id, n]));
 
   for (const n of nodes) {
     const dagreNode = g.node(n.id);
@@ -83,11 +83,7 @@ export function layoutHierarchical(
  * Simple grid layout — arrange nodes in rows/columns.
  * Useful for very large graphs where force sim is too slow.
  */
-export function layoutGrid(
-  nodes: GraphNode[],
-  width: number,
-  height: number,
-): LayoutResult {
+export function layoutGrid(nodes: GraphNode[], width: number, height: number): LayoutResult {
   const cols = Math.max(5, Math.ceil(Math.sqrt(nodes.length)));
   const cellW = width / cols;
   const cellH = height / Math.ceil(nodes.length / cols);
@@ -102,13 +98,10 @@ export function layoutGrid(
   };
 }
 
-export function layoutForce(
-  nodes: GraphNode[],
-  _edges: GraphEdge[],
-): LayoutResult {
+export function layoutForce(nodes: GraphNode[], _edges: GraphEdge[]): LayoutResult {
   // For force layout, just return initial positions
   // D3 will handle the simulation
-  return { nodes: nodes.map(n => ({ ...n, x: 0, y: 0 })) };
+  return { nodes: nodes.map((n) => ({ ...n, x: 0, y: 0 })) };
 }
 
 const NODE_SIZES: Record<string, number> = {

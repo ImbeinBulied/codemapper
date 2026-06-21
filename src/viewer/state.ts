@@ -56,28 +56,78 @@ export let contextMenuNode: ViewNode | null = null;
 export let sim: any = null;
 
 // Setters for modules to update state
-export function setNodes(n: ViewNode[]) { nodes = n; }
-export function setEdges(e: ViewEdge[]) { edges = e; }
-export function setNodeMap(m: Map<string, ViewNode>) { nodeMap = m; }
-export function setGraphData(d: any) { graphData = d; }
-export function setTransform(t: typeof transform) { transform = t; }
-export function setHoveredNode(n: ViewNode | null) { hoveredNode = n; }
-export function setHoveredEdge(e: ViewEdge | null) { hoveredEdge = e; }
-export function setSelectedNode(n: ViewNode | null) { selectedNode = n; }
-export function setFocusNode(n: ViewNode | null) { focusNode = n; }
-export function setDragNode(n: ViewNode | null) { dragNode = n; }
-export function setIsPanning(v: boolean) { isPanning = v; }
-export function setIsDragging(v: boolean) { isDragging = v; }
-export function setPanStart(p: typeof panStart) { panStart = p; }
-export function setSimSettled(v: boolean) { simSettled = v; }
-export function setSearchTerm(t: string) { searchTerm = t; }
-export function setMatchedNodes(n: ViewNode[]) { matchedNodes = n; }
-export function setHiddenKinds(k: Record<string, boolean>) { hiddenKinds = k; }
-export function setCycleNodes(s: Set<string>) { cycleNodes = s; }
-export function setShowCycles(v: boolean) { showCycles = v; }
-export function setLayoutMode(m: typeof layoutMode) { layoutMode = m; }
-export function setShowMinimap(v: boolean) { showMinimap = v; }
-export function setGlRunning(v: boolean) { glRunning = v; }
-export function setDirectoryClusters(d: any[]) { directoryClusters = d; }
-export function setContextMenuNode(n: ViewNode | null) { contextMenuNode = n; }
-export function setSim(s: any) { sim = s; }
+export function setNodes(n: ViewNode[]) {
+  nodes = n;
+}
+export function setEdges(e: ViewEdge[]) {
+  edges = e;
+}
+export function setNodeMap(m: Map<string, ViewNode>) {
+  nodeMap = m;
+}
+export function setGraphData(d: any) {
+  graphData = d;
+}
+export function setTransform(t: typeof transform) {
+  transform = t;
+}
+export function setHoveredNode(n: ViewNode | null) {
+  hoveredNode = n;
+}
+export function setHoveredEdge(e: ViewEdge | null) {
+  hoveredEdge = e;
+}
+export function setSelectedNode(n: ViewNode | null) {
+  selectedNode = n;
+}
+export function setFocusNode(n: ViewNode | null) {
+  focusNode = n;
+}
+export function setDragNode(n: ViewNode | null) {
+  dragNode = n;
+}
+export function setIsPanning(v: boolean) {
+  isPanning = v;
+}
+export function setIsDragging(v: boolean) {
+  isDragging = v;
+}
+export function setPanStart(p: typeof panStart) {
+  panStart = p;
+}
+export function setSimSettled(v: boolean) {
+  simSettled = v;
+}
+export function setSearchTerm(t: string) {
+  searchTerm = t;
+}
+export function setMatchedNodes(n: ViewNode[]) {
+  matchedNodes = n;
+}
+export function setHiddenKinds(k: Record<string, boolean>) {
+  hiddenKinds = k;
+}
+export function setCycleNodes(s: Set<string>) {
+  cycleNodes = s;
+}
+export function setShowCycles(v: boolean) {
+  showCycles = v;
+}
+export function setLayoutMode(m: typeof layoutMode) {
+  layoutMode = m;
+}
+export function setShowMinimap(v: boolean) {
+  showMinimap = v;
+}
+export function setGlRunning(v: boolean) {
+  glRunning = v;
+}
+export function setDirectoryClusters(d: any[]) {
+  directoryClusters = d;
+}
+export function setContextMenuNode(n: ViewNode | null) {
+  contextMenuNode = n;
+}
+export function setSim(s: any) {
+  sim = s;
+}

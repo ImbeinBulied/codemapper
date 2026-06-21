@@ -37,7 +37,7 @@ interface ParseResult {
   edges: GraphEdge[];
 }
 
-type LanguageId = 'python' | 'rust' | 'go' | 'java';
+type LanguageId = 'python' | 'rust' | 'go' | 'java' | 'c' | 'cpp' | 'ruby' | 'kotlin';
 
 interface LangDef {
   extensions: string[];
@@ -48,6 +48,10 @@ const LANGUAGES: Record<LanguageId, LangDef> = {
   rust: { extensions: ['.rs'] },
   go: { extensions: ['.go'] },
   java: { extensions: ['.java'] },
+  c: { extensions: ['.c', '.h'] },
+  cpp: { extensions: ['.cc', '.cpp', '.cxx', '.hpp', '.hxx'] },
+  ruby: { extensions: ['.rb'] },
+  kotlin: { extensions: ['.kt', '.kts'] },
 };
 
 // ── State ────────────────────────────────────────────────────────────
@@ -132,7 +136,8 @@ async function parseFile(
     label: relPath.split('/').pop() || relPath,
     kind: 'file',
     filePath: relPath,
-    line: 1, col: 1,
+    line: 1,
+    col: 1,
     description: relPath,
   });
 
@@ -214,6 +219,67 @@ async function parseFile(
         }
         break;
       }
+      case 'c':
+      case 'cpp': {
+        if (type === 'function_definition') {
+          const n = node.childForFieldName('declarator');
+          if (n) addNode('function', n.text, pos);
+        } else if (type === 'struct_specifier') {
+          const n = node.childForFieldName('name');
+          if (n) addNode('type', n.text, pos);
+        } else if (type === 'enum_specifier') {
+          const n = node.childForFieldName('name');
+          if (n) addNode('type', n.text, pos);
+        } else if (type === 'class_specifier' && lang === 'cpp') {
+          const n = node.childForFieldName('name');
+          if (n) addNode('class', n.text, pos);
+        } else if (type === 'call_expression') {
+          const fn = node.childForFieldName('function');
+          if (fn && fn.type === 'identifier' && localNames.has(fn.text)) {
+            edges.push({ source: fileId, target: `func:${relPath}#${fn.text}`, kind: 'calls', label: fn.text });
+          }
+        }
+        break;
+      }
+      case 'ruby': {
+        if (type === 'method') {
+          const n = node.childForFieldName('name');
+          if (n) addNode('function', n.text, pos);
+        } else if (type === 'class') {
+          const n = node.childForFieldName('name');
+          if (n) addNode('class', n.text, pos);
+        } else if (type === 'module') {
+          const n = node.childForFieldName('name');
+          if (n) addNode('module', n.text, pos);
+        } else if (type === 'call') {
+          const fn = node.childForFieldName('method');
+          if (fn && fn.type === 'identifier' && localNames.has(fn.text)) {
+            edges.push({ source: fileId, target: `func:${relPath}#${fn.text}`, kind: 'calls', label: fn.text });
+          }
+        }
+        break;
+      }
+      case 'kotlin': {
+        if (type === 'function_declaration') {
+          const n = node.childForFieldName('name');
+          if (n) addNode('function', n.text, pos);
+        } else if (type === 'class_declaration') {
+          const n = node.childForFieldName('name');
+          if (n) addNode('class', n.text, pos);
+        } else if (type === 'interface_declaration') {
+          const n = node.childForFieldName('name');
+          if (n) addNode('interface', n.text, pos);
+        } else if (type === 'object_declaration') {
+          const n = node.childForFieldName('name');
+          if (n) addNode('class', n.text, pos);
+        } else if (type === 'call_expression') {
+          const fn = node.childForFieldName('callee');
+          if (fn && fn.type === 'identifier' && localNames.has(fn.text)) {
+            edges.push({ source: fileId, target: `func:${relPath}#${fn.text}`, kind: 'calls', label: fn.text });
+          }
+        }
+        break;
+      }
     }
 
     for (let i = 0; i < node.childCount; i++) walk(node.child(i));
@@ -242,19 +308,20 @@ export async function parseWithTreesitter(
   const seenEdges = new Set<string>();
 
   for (const [langId, langDef] of Object.entries(LANGUAGES)) {
-    const files = allFiles.filter(f => langDef.extensions.some(ext => f.endsWith(ext)));
+    const files = allFiles.filter((f) => langDef.extensions.some((ext) => f.endsWith(ext)));
 
     for (const filePath of files) {
-      const relPath = filePath.startsWith(rootDir)
-        ? filePath.slice(rootDir.length).replace(/\\/g, '/')
-        : filePath;
+      const relPath = filePath.startsWith(rootDir) ? filePath.slice(rootDir.length).replace(/\\/g, '/') : filePath;
 
       const result = await parseFile(filePath, langId as LanguageId, relPath, wasmDir);
       if (result) {
         for (const n of result.nodes) allNodes.push(n);
         for (const e of result.edges) {
           const key = `${e.source}|${e.kind}|${e.target}`;
-          if (!seenEdges.has(key)) { seenEdges.add(key); allEdges.push(e); }
+          if (!seenEdges.has(key)) {
+            seenEdges.add(key);
+            allEdges.push(e);
+          }
         }
       }
     }

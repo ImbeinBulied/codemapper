@@ -1,6 +1,12 @@
 import {
-  nodes, searchTerm, matchedNodes, hiddenKinds, transform,
-  setSearchTerm, setMatchedNodes, ViewNode,
+  nodes,
+  searchTerm,
+  matchedNodes,
+  hiddenKinds,
+  transform,
+  setSearchTerm,
+  setMatchedNodes,
+  ViewNode,
 } from './state.js';
 import { render } from './renderer.js';
 import { selectNode } from './sidebar.js';
@@ -13,7 +19,11 @@ export function initSearch() {
   searchInput.addEventListener('input', (e: Event) => doSearch((e.target as HTMLInputElement).value));
   searchInput.addEventListener('keydown', (e: KeyboardEvent) => {
     if (e.key === 'Enter' && matchedNodes.length > 0) selectNode(matchedNodes[0]);
-    if (e.key === 'Escape') { searchInput.blur(); searchInput.value = ''; doSearch(''); }
+    if (e.key === 'Escape') {
+      searchInput.blur();
+      searchInput.value = '';
+      doSearch('');
+    }
     e.stopPropagation();
   });
 }
@@ -27,10 +37,9 @@ function doSearch(term: string) {
     render();
     return;
   }
-  const visible = nodes.filter(n => !hiddenKinds[n.kind]);
-  const matches = visible.filter(n =>
-    n.label.toLowerCase().includes(searchTerm) ||
-    n.filePath.toLowerCase().includes(searchTerm)
+  const visible = nodes.filter((n) => !hiddenKinds[n.kind]);
+  const matches = visible.filter(
+    (n) => n.label.toLowerCase().includes(searchTerm) || n.filePath.toLowerCase().includes(searchTerm),
   );
   setMatchedNodes(matches);
   searchCount.textContent = matches.length ? String(matches.length) : '0';
@@ -39,12 +48,19 @@ function doSearch(term: string) {
   if (matches.length === 1) {
     panToNode(matches[0]);
   } else if (matches.length > 1) {
-    const xs: number[] = [], ys: number[] = [];
-    for (const n of matches) { if (n.x != null) xs.push(n.x); if (n.y != null) ys.push(n.y); }
+    const xs: number[] = [],
+      ys: number[] = [];
+    for (const n of matches) {
+      if (n.x != null) xs.push(n.x);
+      if (n.y != null) ys.push(n.y);
+    }
     if (xs.length && ys.length) {
-      const minX = Math.min(...xs), maxX = Math.max(...xs);
-      const minY = Math.min(...ys), maxY = Math.max(...ys);
-      const gcx = (minX + maxX) / 2, gcy = (minY + maxY) / 2;
+      const minX = Math.min(...xs),
+        maxX = Math.max(...xs);
+      const minY = Math.min(...ys),
+        maxY = Math.max(...ys);
+      const gcx = (minX + maxX) / 2,
+        gcy = (minY + maxY) / 2;
       const pad = 150;
       const sx = container.clientWidth / (maxX - minX + pad * 2);
       const sy = container.clientHeight / (maxY - minY + pad * 2);

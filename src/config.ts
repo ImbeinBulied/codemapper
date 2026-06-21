@@ -24,7 +24,7 @@ export function loadConfig(dir: string): Config {
         }
         return config;
       }
-    } catch { }
+    } catch {}
   }
   return {};
 }
@@ -34,14 +34,14 @@ export function shouldIncludeFile(filePath: string, config: Config): boolean {
     for (const pattern of config.exclude) {
       try {
         if (new RegExp(pattern).test(filePath)) return false;
-      } catch { }
+      } catch {}
     }
   }
   if (config.include) {
     for (const pattern of config.include) {
       try {
         if (new RegExp(pattern).test(filePath)) return true;
-      } catch { }
+      } catch {}
     }
     return false;
   }

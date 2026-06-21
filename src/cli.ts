@@ -23,25 +23,27 @@ program
   .option('-w, --watch', 'Watch for file changes and auto-refresh')
   .option('-d, --deep', 'Use tree-sitter AST parsing (slower, more accurate)')
   .option('--no-open', 'Do not open browser automatically')
-  .action(async (dir: string, opts: { port: string; open: boolean; filter?: string; watch?: boolean; deep?: boolean }) => {
-    try {
-      console.log(chalk.cyan(' codemapper ') + chalk.gray(' — analyzing codebase...'));
-      const port = parseInt(opts.port, 10);
-      const { url } = await startServer(dir, port, { filter: opts.filter, watch: opts.watch, deep: opts.deep });
-      console.log(chalk.green(`  Viewer running at ${chalk.bold(url)}`));
-      console.log(chalk.green(`  Viewer running at ${chalk.bold(url)}`));
-      if (opts.open !== false) {
-        await open(url);
+  .action(
+    async (dir: string, opts: { port: string; open: boolean; filter?: string; watch?: boolean; deep?: boolean }) => {
+      try {
+        console.log(chalk.cyan(' codemapper ') + chalk.gray(' — analyzing codebase...'));
+        const port = parseInt(opts.port, 10);
+        const { url } = await startServer(dir, port, { filter: opts.filter, watch: opts.watch, deep: opts.deep });
+        console.log(chalk.green(`  Viewer running at ${chalk.bold(url)}`));
+        console.log(chalk.green(`  Viewer running at ${chalk.bold(url)}`));
+        if (opts.open !== false) {
+          await open(url);
+        }
+        if (opts.watch) {
+          console.log(chalk.gray('  Watching for changes...'));
+        }
+        await new Promise(() => {});
+      } catch (err: any) {
+        console.error(chalk.red('Error:'), err.message);
+        process.exit(1);
       }
-      if (opts.watch) {
-        console.log(chalk.gray('  Watching for changes...'));
-      }
-      await new Promise(() => {});
-    } catch (err: any) {
-      console.error(chalk.red('Error:'), err.message);
-      process.exit(1);
-    }
-  });
+    },
+  );
 
 program
   .command('analyze')

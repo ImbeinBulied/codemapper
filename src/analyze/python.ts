@@ -14,32 +14,147 @@ const CALL_RE = /(\w+)\s*\(/g;
 
 // Expanded skip list covering Python stdlib and common third-party libs
 const SKIP_CALLS = new Set([
-  'if', 'elif', 'else', 'for', 'while', 'with', 'try', 'except', 'finally',
-  'return', 'yield', 'raise', 'import', 'from', 'class', 'def', 'async',
-  'await', 'lambda', 'pass', 'break', 'continue', 'del', 'global', 'nonlocal',
-  'assert', 'print', 'is', 'not', 'and', 'or', 'in', 'True', 'False', 'None',
-  'self', 'cls', 'super', 'type', 'len', 'range', 'int', 'str', 'float',
-  'list', 'dict', 'set', 'tuple', 'bool', 'enumerate', 'zip', 'map', 'filter',
-  'sorted', 'reversed', 'any', 'all', 'min', 'max', 'sum', 'abs', 'round',
-  'open', 'input', 'hasattr', 'getattr', 'setattr', 'isinstance', 'issubclass',
-  'vars', 'dir', 'id', 'hash', 'repr', 'format', 'next', 'iter', 'callable',
-  'abs', 'divmod', 'pow', 'chr', 'ord', 'hex', 'bin', 'oct', 'ascii',
-  'Exception', 'ValueError', 'TypeError', 'KeyError', 'IndexError',
-  'RuntimeError', 'StopIteration', 'AttributeError', 'ImportError',
-  'FileNotFoundError', 'OSError', 'IOError', 'MemoryError', 'OverflowError',
-  'ZeroDivisionError', 'AssertionError', 'PermissionError',
-  'NotImplementedError', 'RecursionError',
+  'if',
+  'elif',
+  'else',
+  'for',
+  'while',
+  'with',
+  'try',
+  'except',
+  'finally',
+  'return',
+  'yield',
+  'raise',
+  'import',
+  'from',
+  'class',
+  'def',
+  'async',
+  'await',
+  'lambda',
+  'pass',
+  'break',
+  'continue',
+  'del',
+  'global',
+  'nonlocal',
+  'assert',
+  'print',
+  'is',
+  'not',
+  'and',
+  'or',
+  'in',
+  'True',
+  'False',
+  'None',
+  'self',
+  'cls',
+  'super',
+  'type',
+  'len',
+  'range',
+  'int',
+  'str',
+  'float',
+  'list',
+  'dict',
+  'set',
+  'tuple',
+  'bool',
+  'enumerate',
+  'zip',
+  'map',
+  'filter',
+  'sorted',
+  'reversed',
+  'any',
+  'all',
+  'min',
+  'max',
+  'sum',
+  'abs',
+  'round',
+  'open',
+  'input',
+  'hasattr',
+  'getattr',
+  'setattr',
+  'isinstance',
+  'issubclass',
+  'vars',
+  'dir',
+  'id',
+  'hash',
+  'repr',
+  'format',
+  'next',
+  'iter',
+  'callable',
+  'abs',
+  'divmod',
+  'pow',
+  'chr',
+  'ord',
+  'hex',
+  'bin',
+  'oct',
+  'ascii',
+  'Exception',
+  'ValueError',
+  'TypeError',
+  'KeyError',
+  'IndexError',
+  'RuntimeError',
+  'StopIteration',
+  'AttributeError',
+  'ImportError',
+  'FileNotFoundError',
+  'OSError',
+  'IOError',
+  'MemoryError',
+  'OverflowError',
+  'ZeroDivisionError',
+  'AssertionError',
+  'PermissionError',
+  'NotImplementedError',
+  'RecursionError',
   // Common test/lib functions
-  'describe', 'it', 'test', 'pytest', 'unittest',
-  'patch', 'mock', 'MagicMock', 'Mock', 'PropertyMock',
-  'pytest_generate_tests', 'pytest_collect_file',
-  'pytest_runtest_protocol', 'pytest_addoption',
-  'setup_method', 'setup_class', 'setup_module',
-  'teardown_method', 'teardown_class', 'teardown_module',
-  'setUp', 'tearDown', 'setUpClass', 'tearDownClass',
-  'setUpModule', 'tearDownModule',
-  'request', 'capsys', 'caplog', 'tmpdir', 'tmp_path',
-  'monkeypatch', 'shared', 'ctx',
+  'describe',
+  'it',
+  'test',
+  'pytest',
+  'unittest',
+  'patch',
+  'mock',
+  'MagicMock',
+  'Mock',
+  'PropertyMock',
+  'pytest_generate_tests',
+  'pytest_collect_file',
+  'pytest_runtest_protocol',
+  'pytest_addoption',
+  'setup_method',
+  'setup_class',
+  'setup_module',
+  'teardown_method',
+  'teardown_class',
+  'teardown_module',
+  'setUp',
+  'tearDown',
+  'setUpClass',
+  'tearDownClass',
+  'setUpModule',
+  'tearDownModule',
+  'request',
+  'capsys',
+  'caplog',
+  'tmpdir',
+  'tmp_path',
+  'monkeypatch',
+  'shared',
+  'ctx',
 ]);
 
 function isCodeFile(p: string): boolean {
@@ -53,13 +168,15 @@ export async function analyzePython(dir: string, rootDir: string, config?: Confi
   const pyFiles = allFiles.filter(isCodeFile);
 
   // Track imports per file for cross-file resolution
-  interface ImportInfo { localName: string; sourceModule: string; importedName: string; }
+  interface ImportInfo {
+    localName: string;
+    sourceModule: string;
+    importedName: string;
+  }
   const fileImports = new Map<string, ImportInfo[]>();
 
   for (const filePath of pyFiles) {
-    const relPath = filePath.startsWith(rootDir)
-      ? filePath.slice(rootDir.length).replace(/\\/g, '/')
-      : filePath;
+    const relPath = filePath.startsWith(rootDir) ? filePath.slice(rootDir.length).replace(/\\/g, '/') : filePath;
     const nodeId = `file:${relPath}`;
     const fileName = relPath.split('/').pop() || relPath;
 
@@ -75,7 +192,10 @@ export async function analyzePython(dir: string, rootDir: string, config?: Confi
 
     // `import foo, bar` and `import foo.bar as baz`
     for (const m of content.matchAll(IMPORT_RE)) {
-      const parts = m[1].split(',').map(s => s.trim()).filter(Boolean);
+      const parts = m[1]
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
       for (const part of parts) {
         // Handle `import foo.bar as baz`
         const asMatch = part.match(/^([\w.]+)\s+as\s+(\w+)$/);
@@ -97,14 +217,22 @@ export async function analyzePython(dir: string, rootDir: string, config?: Confi
     // `from foo import bar, baz as qux`
     for (const m of content.matchAll(FROM_IMPORT_RE)) {
       const mod = m[1];
-      const names = m[2].split(',').map(s => s.trim()).filter(Boolean);
+      const names = m[2]
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
       for (const name of names) {
         const asMatch = name.match(/^([\w*]+)\s+as\s+(\w+)$/);
         if (asMatch) {
           const importedName = asMatch[1];
           const localName = asMatch[2];
           imports.push({ localName, sourceModule: mod, importedName });
-          edges.push({ source: nodeId, target: `module:${mod}`, kind: 'imports', label: `${importedName} as ${localName}` });
+          edges.push({
+            source: nodeId,
+            target: `module:${mod}`,
+            kind: 'imports',
+            label: `${importedName} as ${localName}`,
+          });
         } else {
           imports.push({ localName: name, sourceModule: mod, importedName: name });
           edges.push({ source: nodeId, target: `module:${mod}`, kind: 'imports', label: name });
@@ -140,7 +268,10 @@ export async function analyzePython(dir: string, rootDir: string, config?: Confi
       const classLine = lines[lineNum - 1] || '';
       const inheritMatch = classLine.match(/class\s+\w+\s*\(([^)]*)\)/);
       if (inheritMatch) {
-        for (const parent of inheritMatch[1].split(',').map(s => s.trim()).filter(Boolean)) {
+        for (const parent of inheritMatch[1]
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)) {
           edges.push({ source: classId, target: `class:${parent}`, kind: 'extends', label: parent });
         }
       }

@@ -1,4 +1,15 @@
-import { setNodes, setEdges, setNodeMap, setGraphData, setTransform, setShowMinimap, cycleNodes, WEBGL_THRESHOLD, transform, setFocusNode } from './state.js';
+import {
+  setNodes,
+  setEdges,
+  setNodeMap,
+  setGraphData,
+  setTransform,
+  setShowMinimap,
+  cycleNodes,
+  WEBGL_THRESHOLD,
+  transform,
+  setFocusNode,
+} from './state.js';
 import { render } from './renderer.js';
 import { initWebGL } from './renderer.js';
 import { startForceSimulation } from './simulation.js';
@@ -26,7 +37,8 @@ function showError(msg: string) {
 function resize() {
   const dpr = window.devicePixelRatio || 1;
   const container = document.getElementById('canvas-container')!;
-  const w = container.clientWidth, h = container.clientHeight;
+  const w = container.clientWidth,
+    h = container.clientHeight;
   canvas.width = w * dpr;
   canvas.height = h * dpr;
   canvas.style.width = w + 'px';
@@ -34,29 +46,53 @@ function resize() {
   const ctx = canvas.getContext('2d')!;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   const glCanvas = document.getElementById('gl-canvas') as HTMLCanvasElement;
-  if (glCanvas) { glCanvas.width = w; glCanvas.height = h; glCanvas.style.width = w + 'px'; glCanvas.style.height = h + 'px'; }
+  if (glCanvas) {
+    glCanvas.width = w;
+    glCanvas.height = h;
+    glCanvas.style.width = w + 'px';
+    glCanvas.style.height = h + 'px';
+  }
   render();
 }
 
 const COLORS = {
-  file: '#30363d', function: '#d2a8ff', class: '#58a6ff',
-  interface: '#79c0ff', type: '#3fb950', module: '#8b949e', call: '#f0883e',
+  file: '#30363d',
+  function: '#d2a8ff',
+  class: '#58a6ff',
+  interface: '#79c0ff',
+  type: '#3fb950',
+  module: '#8b949e',
+  call: '#f0883e',
 };
 
 function buildLegend() {
   legend.innerHTML = Object.entries(COLORS)
-    .map(([k, v]) => '<div class="legend-item"><div class="legend-dot" style="background:' + v + '"></div>' + k + '</div>')
+    .map(
+      ([k, v]) => '<div class="legend-item"><div class="legend-dot" style="background:' + v + '"></div>' + k + '</div>',
+    )
     .join('');
 }
 
 function updateStats(data: any) {
   const s = data.stats;
   document.getElementById('stats')!.innerHTML =
-    '<span class="stat"><b>' + s.files + '</b> files</span>' +
-    '<span class="stat"><b>' + s.functions + '</b> funcs</span>' +
-    '<span class="stat"><b>' + s.classes + '</b> types</span>' +
-    '<span class="stat"><b>' + s.imports + '</b> imports</span>' +
-    '<span class="stat"><b>' + data.graph.nodes.length + '</b> nodes · <b>' + data.graph.edges.length + '</b> edges</span>';
+    '<span class="stat"><b>' +
+    s.files +
+    '</b> files</span>' +
+    '<span class="stat"><b>' +
+    s.functions +
+    '</b> funcs</span>' +
+    '<span class="stat"><b>' +
+    s.classes +
+    '</b> types</span>' +
+    '<span class="stat"><b>' +
+    s.imports +
+    '</b> imports</span>' +
+    '<span class="stat"><b>' +
+    data.graph.nodes.length +
+    '</b> nodes · <b>' +
+    data.graph.edges.length +
+    '</b> edges</span>';
 }
 
 function initGraph(data: any) {
@@ -71,12 +107,15 @@ function initGraph(data: any) {
   setNodeMap(nm);
 
   let droppedEdges = 0;
-  const eds = data.graph.edges.map((e: any) =>
-    Object.assign({}, e, { source: nm.get(e.source), target: nm.get(e.target) })
-  ).filter((e: any) => {
-    if (!e.source || !e.target) { droppedEdges++; return false; }
-    return true;
-  });
+  const eds = data.graph.edges
+    .map((e: any) => Object.assign({}, e, { source: nm.get(e.source), target: nm.get(e.target) }))
+    .filter((e: any) => {
+      if (!e.source || !e.target) {
+        droppedEdges++;
+        return false;
+      }
+      return true;
+    });
   setEdges(eds);
   if (droppedEdges > 0) console.warn('Dropped ' + droppedEdges + ' edges with missing nodes');
 
@@ -86,7 +125,8 @@ function initGraph(data: any) {
   if (nds.length > 20) setShowMinimap(true);
 
   const container = document.getElementById('canvas-container')!;
-  const cx = container.clientWidth / 2, cy = container.clientHeight / 2;
+  const cx = container.clientWidth / 2,
+    cy = container.clientHeight / 2;
   nds.forEach((n: any, i: number) => {
     const angle = (i / nds.length) * Math.PI * 2;
     const rad = Math.min(container.clientWidth, container.clientHeight) * 0.3;
@@ -105,20 +145,61 @@ document.addEventListener('keydown', (e: KeyboardEvent) => {
   const target = e.target as HTMLElement;
   if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
   switch (e.key) {
-    case 'ArrowLeft': e.preventDefault(); transform.x += 60; render(); break;
-    case 'ArrowRight': e.preventDefault(); transform.x -= 60; render(); break;
-    case 'ArrowUp': e.preventDefault(); transform.y += 60; render(); break;
-    case 'ArrowDown': e.preventDefault(); transform.y -= 60; render(); break;
-    case '+': case '=': e.preventDefault(); transform.k *= 1.15; updateZoomLevel(); render(); break;
-    case '-': case '_': e.preventDefault(); transform.k /= 1.15; updateZoomLevel(); render(); break;
+    case 'ArrowLeft':
+      e.preventDefault();
+      transform.x += 60;
+      render();
+      break;
+    case 'ArrowRight':
+      e.preventDefault();
+      transform.x -= 60;
+      render();
+      break;
+    case 'ArrowUp':
+      e.preventDefault();
+      transform.y += 60;
+      render();
+      break;
+    case 'ArrowDown':
+      e.preventDefault();
+      transform.y -= 60;
+      render();
+      break;
+    case '+':
+    case '=':
+      e.preventDefault();
+      transform.k *= 1.15;
+      updateZoomLevel();
+      render();
+      break;
+    case '-':
+    case '_':
+      e.preventDefault();
+      transform.k /= 1.15;
+      updateZoomLevel();
+      render();
+      break;
     case 'Escape':
       document.getElementById('context-menu')!.classList.remove('show');
       setFocusNode(null);
       closeSidebar();
       break;
-    case '/': e.preventDefault(); document.getElementById('search-input')!.focus(); break;
-    case 'k': if (e.ctrlKey || e.metaKey) { e.preventDefault(); document.getElementById('search-input')!.focus(); } break;
-    case '0': if (e.ctrlKey || e.metaKey) { e.preventDefault(); (window as any).resetZoom(); } break;
+    case '/':
+      e.preventDefault();
+      document.getElementById('search-input')!.focus();
+      break;
+    case 'k':
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        document.getElementById('search-input')!.focus();
+      }
+      break;
+    case '0':
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        (window as any).resetZoom();
+      }
+      break;
   }
 });
 
@@ -131,6 +212,49 @@ async function init() {
   statusBar.classList.add('show');
   initSearch();
   initInteraction();
+  await loadGraph();
+  resize();
+  connectWebSocket();
+}
+
+function connectWebSocket() {
+  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsUrl = `${proto}//${window.location.host}`;
+  let ws: WebSocket | null = null;
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function connect() {
+    if (ws) ws.close();
+    try {
+      ws = new WebSocket(wsUrl);
+      ws.onmessage = (e: MessageEvent) => {
+        try {
+          const msg = JSON.parse(e.data);
+          if (msg.type === 'refresh') {
+            statusBar.classList.add('show');
+            document.getElementById('status-bar')!.querySelector('span')!.textContent =
+              'Codebase changed, re-analyzing...';
+            loadGraph().then(() => {
+              document.getElementById('status-bar')!.querySelector('span')!.textContent = 'Analyzing codebase...';
+            });
+          }
+        } catch {}
+      };
+      ws.onclose = () => {
+        ws = null;
+        if (reconnectTimer) clearTimeout(reconnectTimer);
+        reconnectTimer = setTimeout(connect, 3000);
+      };
+      ws.onerror = () => {
+        ws?.close();
+      };
+    } catch {}
+  }
+
+  connect();
+}
+
+async function loadGraph() {
   try {
     const res = await fetch('/api/analyze');
     if (!res.ok) throw new Error('Server returned ' + res.status);
@@ -141,7 +265,6 @@ async function init() {
     showError('Failed to analyze codebase: ' + err.message);
     statusBar.classList.remove('show');
   }
-  resize();
 }
 
 window.addEventListener('resize', resize);

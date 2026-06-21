@@ -16,17 +16,25 @@ function scriptKindFromPath(filePath: string): ts.ScriptKind {
 }
 
 function posToLineCol(text: string, pos: number): { line: number; col: number } {
-  let line = 1, col = 1;
+  let line = 1,
+    col = 1;
   for (let i = 0; i < pos && i < text.length; i++) {
-    if (text[i] === '\n') { line++; col = 1; }
-    else { col++; }
+    if (text[i] === '\n') {
+      line++;
+      col = 1;
+    } else {
+      col++;
+    }
   }
   return { line, col };
 }
 
 const NODE_PREFIX: Record<string, string> = {
-  file: 'file:', function: 'func:', class: 'class:',
-  interface: 'interface:', type: 'type:',
+  file: 'file:',
+  function: 'func:',
+  class: 'class:',
+  interface: 'interface:',
+  type: 'type:',
 };
 
 function nodeId(relPath: string, kind: string, symbol: string): string {
@@ -70,11 +78,7 @@ interface FileResult {
 
 // ── Single-file AST extractor ────────────────────────────────────────
 
-function analyzeFile(
-  filePath: string,
-  relPath: string,
-  rootDir: string,
-): FileResult {
+function analyzeFile(filePath: string, relPath: string, rootDir: string): FileResult {
   const result: FileResult = {
     nodes: [],
     edges: [],
@@ -100,21 +104,11 @@ function analyzeFile(
   };
   result.nodes.push(fileNode);
 
-  const sourceFile = ts.createSourceFile(
-    relPath,
-    text,
-    ts.ScriptTarget.Latest,
-    true,
-    scriptKindFromPath(filePath),
-  );
+  const sourceFile = ts.createSourceFile(relPath, text, ts.ScriptTarget.Latest, true, scriptKindFromPath(filePath));
 
   // ── Walk helpers ──
 
-  function addNode(
-    kind: GraphNode['kind'],
-    name: string,
-    node: ts.Node,
-  ): GraphNode {
+  function addNode(kind: GraphNode['kind'], name: string, node: ts.Node): GraphNode {
     const id = nodeId(relPath, kind, name);
     const pos = posToLineCol(text, node.getStart(sourceFile));
     const gn: GraphNode = {
@@ -132,12 +126,7 @@ function analyzeFile(
     return gn;
   }
 
-  function addEdge(
-    kind: GraphEdge['kind'],
-    sourceId: string,
-    targetId: string,
-    label?: string,
-  ) {
+  function addEdge(kind: GraphEdge['kind'], sourceId: string, targetId: string, label?: string) {
     result.edges.push({ source: sourceId, target: targetId, kind, label });
   }
 
@@ -167,7 +156,10 @@ function analyzeFile(
     if (kind === ts.SyntaxKind.ImportDeclaration) {
       const imp = node as ts.ImportDeclaration;
       const modSpec = getModuleSpecifier(imp);
-      if (!modSpec) { ts.forEachChild(node, visit); return; }
+      if (!modSpec) {
+        ts.forEachChild(node, visit);
+        return;
+      }
 
       if (imp.importClause?.name) {
         const localName = imp.importClause.name.text;
@@ -182,7 +174,9 @@ function analyzeFile(
             const importedName = el.propertyName?.text || el.name.text;
             const localName = el.name.text;
             result.imports.push({
-              localName, sourceModule: modSpec, importedName,
+              localName,
+              sourceModule: modSpec,
+              importedName,
               namedAlias: importedName !== localName ? importedName : undefined,
             });
             addEdge('imports', fileNode.id, `module:${modSpec}`, localName);
@@ -317,12 +311,7 @@ function analyzeFile(
     ts.forEachChild(node, visit);
   }
 
-  function visitCalls(
-    container: ts.Node,
-    result: FileResult,
-    fileId: string,
-    relPath: string,
-  ) {
+  function visitCalls(container: ts.Node, result: FileResult, fileId: string, relPath: string) {
     ts.forEachChild(container, function visitCallNode(node: ts.Node) {
       if (ts.isCallExpression(node)) {
         visitCallExpression(node, result, fileId, relPath);
@@ -331,12 +320,7 @@ function analyzeFile(
     });
   }
 
-  function visitCallExpression(
-    expr: ts.CallExpression,
-    result: FileResult,
-    fileId: string,
-    relPath: string,
-  ) {
+  function visitCallExpression(expr: ts.CallExpression, result: FileResult, fileId: string, relPath: string) {
     const callee = expr.expression;
     let name: string | null = null;
 
@@ -390,9 +374,7 @@ function analyzeFile(
   }
 
   function getModuleSpecifier(node: ts.ImportDeclaration | ts.ExportDeclaration): string | null {
-    return node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)
-      ? node.moduleSpecifier.text
-      : null;
+    return node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier) ? node.moduleSpecifier.text : null;
   }
 
   function getName(nameNode: ts.PropertyName | ts.BindingName | ts.DeclarationName): string {
@@ -400,7 +382,8 @@ function analyzeFile(
     if (ts.isStringLiteral(nameNode)) return nameNode.text;
     if (ts.isNumericLiteral(nameNode)) return nameNode.text;
     if (nameNode.kind === ts.SyntaxKind.ComputedPropertyName) return '[computed]';
-    if (nameNode.kind === ts.SyntaxKind.ArrayBindingPattern || nameNode.kind === ts.SyntaxKind.ObjectBindingPattern) return '[pattern]';
+    if (nameNode.kind === ts.SyntaxKind.ArrayBindingPattern || nameNode.kind === ts.SyntaxKind.ObjectBindingPattern)
+      return '[pattern]';
     return '[unknown]';
   }
 
@@ -453,11 +436,7 @@ function analyzeFile(
 
 // ── Cross-file resolution ────────────────────────────────────────────
 
-function resolveModule(
-  specifier: string,
-  importerRelPath: string,
-  rootDir: string,
-): string | null {
+function resolveModule(specifier: string, importerRelPath: string, rootDir: string): string | null {
   if (!specifier.startsWith('.')) return null; // bare specifier = external
   const dir = path.dirname(path.join(rootDir, importerRelPath));
   const extensions = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.d.ts'];
@@ -489,28 +468,101 @@ function resolveModule(
 // ── Main export ──────────────────────────────────────────────────────
 
 const SKIP_CALLS = new Set([
-  'import', 'from', 'export', 'default', 'if', 'else', 'for', 'while', 'switch',
-  'case', 'return', 'throw', 'try', 'catch', 'finally', 'new', 'typeof', 'instanceof',
-  'void', 'delete', 'in', 'of', 'as', 'let', 'const', 'var', 'function', 'class',
-  'interface', 'type', 'enum', 'module', 'namespace', 'declare', 'abstract',
-  'public', 'private', 'protected', 'static', 'readonly', 'async', 'await', 'yield',
-  'constructor', 'get', 'set', 'this', 'super', 'true', 'false', 'null', 'undefined',
-  'NaN', 'Infinity', 'console', 'require', 'module', 'process', 'window', 'document',
-  'Math', 'JSON', 'Array', 'Object', 'String', 'Number', 'Boolean', 'RegExp', 'Date',
-  'Map', 'Set', 'Promise', 'Error', 'Symbol', 'BigInt', 'Proxy', 'Reflect',
-  'describe', 'it', 'test', 'expect', 'beforeEach', 'afterEach', 'beforeAll', 'afterAll',
-  'vi', 'jest', 'vitest',
+  'import',
+  'from',
+  'export',
+  'default',
+  'if',
+  'else',
+  'for',
+  'while',
+  'switch',
+  'case',
+  'return',
+  'throw',
+  'try',
+  'catch',
+  'finally',
+  'new',
+  'typeof',
+  'instanceof',
+  'void',
+  'delete',
+  'in',
+  'of',
+  'as',
+  'let',
+  'const',
+  'var',
+  'function',
+  'class',
+  'interface',
+  'type',
+  'enum',
+  'module',
+  'namespace',
+  'declare',
+  'abstract',
+  'public',
+  'private',
+  'protected',
+  'static',
+  'readonly',
+  'async',
+  'await',
+  'yield',
+  'constructor',
+  'get',
+  'set',
+  'this',
+  'super',
+  'true',
+  'false',
+  'null',
+  'undefined',
+  'NaN',
+  'Infinity',
+  'console',
+  'require',
+  'module',
+  'process',
+  'window',
+  'document',
+  'Math',
+  'JSON',
+  'Array',
+  'Object',
+  'String',
+  'Number',
+  'Boolean',
+  'RegExp',
+  'Date',
+  'Map',
+  'Set',
+  'Promise',
+  'Error',
+  'Symbol',
+  'BigInt',
+  'Proxy',
+  'Reflect',
+  'describe',
+  'it',
+  'test',
+  'expect',
+  'beforeEach',
+  'afterEach',
+  'beforeAll',
+  'afterAll',
+  'vi',
+  'jest',
+  'vitest',
 ]);
 
 function isCodeFile(p: string): boolean {
   return /\.(ts|tsx|js|jsx|mjs)$/.test(p) && !p.endsWith('.d.ts') && !p.endsWith('.min.js');
 }
 
-export async function analyzeTypeScript(
-  dir: string,
-  rootDir: string,
-  config?: Config,
-): Promise<CodeGraph> {
+export async function analyzeTypeScript(dir: string, rootDir: string, config?: Config): Promise<CodeGraph> {
   const allFiles = await walkFiles(dir, config);
   const tsFiles = allFiles.filter(isCodeFile);
 
@@ -529,9 +581,7 @@ export async function analyzeTypeScript(
 
   // Phase 1: Parse all files
   for (const filePath of tsFiles) {
-    const relPath = filePath.startsWith(rootDir)
-      ? filePath.slice(rootDir.length).replace(/\\/g, '/')
-      : filePath;
+    const relPath = filePath.startsWith(rootDir) ? filePath.slice(rootDir.length).replace(/\\/g, '/') : filePath;
 
     const result = analyzeFile(filePath, relPath, rootDir);
     fileResults.set(filePath, result);
@@ -543,9 +593,7 @@ export async function analyzeTypeScript(
   // Phase 2: Build export map for cross-file resolution
   const exportMap = new Map<string, Map<string, { filePath: string; node: GraphNode; exportedName: string }>>();
   for (const [filePath, result] of fileResults) {
-    const relPath = filePath.startsWith(rootDir)
-      ? filePath.slice(rootDir.length).replace(/\\/g, '/')
-      : filePath;
+    const relPath = filePath.startsWith(rootDir) ? filePath.slice(rootDir.length).replace(/\\/g, '/') : filePath;
     const fileExports = new Map<string, { filePath: string; node: GraphNode; exportedName: string }>();
     for (const [name, entry] of result.exports) {
       fileExports.set(name, { filePath: relPath, node: entry.node, exportedName: entry.exportedName });
@@ -555,18 +603,15 @@ export async function analyzeTypeScript(
 
   // Phase 3: Resolve cross-file imports → resolved edges + call edges
   for (const [filePath, result] of fileResults) {
-    const relPath = filePath.startsWith(rootDir)
-      ? filePath.slice(rootDir.length).replace(/\\/g, '/')
-      : filePath;
+    const relPath = filePath.startsWith(rootDir) ? filePath.slice(rootDir.length).replace(/\\/g, '/') : filePath;
 
     for (const imp of result.imports) {
       const resolvedPath = resolveModule(imp.sourceModule, relPath, rootDir);
       if (resolvedPath && exportMap.has(resolvedPath)) {
         const targetExports = exportMap.get(resolvedPath)!;
 
-        let targetExport = imp.importedName === '*'
-          ? targetExports.values().next().value
-          : targetExports.get(imp.importedName);
+        let targetExport =
+          imp.importedName === '*' ? targetExports.values().next().value : targetExports.get(imp.importedName);
 
         if (!targetExport && imp.namedAlias) {
           targetExport = targetExports.get(imp.namedAlias);
@@ -591,9 +636,8 @@ export async function analyzeTypeScript(
 
         // Try to find the matching exported function
         // For `import { foo }` and `foo()`, look for export named 'foo'
-        const targetExport = call.importedName === '*'
-          ? targetExports.values().next().value
-          : targetExports.get(call.importedName);
+        const targetExport =
+          call.importedName === '*' ? targetExports.values().next().value : targetExports.get(call.importedName);
 
         if (targetExport && targetExport.node.kind === 'function') {
           dedupEdge({

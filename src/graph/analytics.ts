@@ -1,6 +1,6 @@
 /**
  * Graph analytics — computes structural metrics about the codebase.
- * 
+ *
  * Metrics:
  * - Hub score: nodes with the most incoming dependencies (most imported)
  * - Coupling: how many other modules each module depends on (fan-out)
@@ -33,8 +33,8 @@ export interface AnalyticsResult {
 
 export function analyzeGraph(nodes: GraphNode[], edges: GraphEdge[]): AnalyticsResult {
   const metrics = new Map<string, NodeMetrics>();
-  const fileNodes = nodes.filter(n => n.kind === 'file');
-  const fileIds = new Set(fileNodes.map(n => n.id));
+  const fileNodes = nodes.filter((n) => n.kind === 'file');
+  const fileIds = new Set(fileNodes.map((n) => n.id));
 
   // Initialize metrics for file nodes
   for (const n of fileNodes) {
@@ -86,20 +86,18 @@ export function analyzeGraph(nodes: GraphNode[], edges: GraphEdge[]): AnalyticsR
     .map(([id, m]) => ({ id, label: id.split('/').pop() || id, fanIn: m.fanIn }))
     .sort((a, b) => b.fanIn - a.fanIn)
     .slice(0, 10)
-    .filter(h => h.fanIn > 0);
+    .filter((h) => h.fanIn > 0);
 
   // Rank most unstable
   const mostUnstable = Array.from(metrics.entries())
     .map(([id, m]) => ({ id, label: id.split('/').pop() || id, instability: m.instability }))
     .sort((a, b) => b.instability - a.instability)
     .slice(0, 10)
-    .filter(u => u.instability > 0 && u.instability < 1); // skip 0 and 1
+    .filter((u) => u.instability > 0 && u.instability < 1); // skip 0 and 1
 
   // Average coupling
-  const couplings = Array.from(metrics.values()).map(m => m.coupling);
-  const avgCoupling = couplings.length > 0
-    ? couplings.reduce((a, b) => a + b, 0) / couplings.length
-    : 0;
+  const couplings = Array.from(metrics.values()).map((m) => m.coupling);
+  const avgCoupling = couplings.length > 0 ? couplings.reduce((a, b) => a + b, 0) / couplings.length : 0;
 
   return { metrics, hubs, mostUnstable, avgCoupling };
 }
