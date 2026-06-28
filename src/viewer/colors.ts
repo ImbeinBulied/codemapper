@@ -16,6 +16,7 @@ export interface ColorSet {
   cycle: string;
   cycle_edge: string;
   bg: string;
+  [key: string]: string;
 }
 
 const DARK: ColorSet = {

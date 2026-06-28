@@ -34,7 +34,7 @@
     "@eslint/js": "^10.0.1",
     "@types/dagre": "^0.7.54",
     "@types/express": "^5.0.1",
-    "@types/node": "^22.14.0",
+    "@types/node": "^26.0.1",
     "@types/ws": "^8.18.1",
     "esbuild": "^0.28.1",
     "eslint": "^10.5.0",
@@ -42,7 +42,7 @@
     "prettier": "^3.8.4",
     "tsx": "^4.19.3",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.61.1",
+    "typescript-eslint": "^8.62.0",
     "vitest": "^4.1.9"
   }
 }

@@ -1,4 +1,4 @@
-// @ts-nocheck — Ported from plain JS. Types refined later.
+// @ts-nocheck — WebGL path uses low-level typed arrays / context methods; types incomplete
 import { COLORS, NODE_SIZE } from './colors.js';
 import {
   nodes,
@@ -25,6 +25,7 @@ import {
   ViewEdge,
 } from './state.js';
 import { updateMinimap } from './minimap.js';
+import { saveStateToUrl } from './url-state.js';
 
 export function render() {
   if (glRunning && nodes.length > 500) {
@@ -33,6 +34,7 @@ export function render() {
     const glCanvas = document.getElementById('gl-canvas');
     if (canvas) canvas.style.display = 'block';
     if (glCanvas) glCanvas.style.display = 'block';
+    saveStateToUrl();
     return;
   }
   renderCanvas2D();
@@ -41,12 +43,15 @@ export function render() {
   const canvas = document.getElementById('canvas');
   if (canvas) canvas.style.display = 'block';
   updateMinimap();
+  saveStateToUrl();
 }
 
 function renderCanvas2D() {
   const container = document.getElementById('canvas-container')!;
-  const canvas = document.getElementById('canvas');
+  const canvas = document.getElementById('canvas') as HTMLCanvasElement | null;
+  if (!canvas) return;
   const ctx = canvas.getContext('2d');
+  if (!ctx) return;
   const w = container.clientWidth,
     h = container.clientHeight;
   ctx.clearRect(0, 0, w, h);
@@ -106,8 +111,8 @@ function renderCanvas2D() {
   }
 
   for (const e of edges) {
-    const src = e.source,
-      tgt = e.target;
+    const src = e.source as any,
+      tgt = e.target as any;
     if (!src.x || !tgt.x) continue;
     const sx = src.x,
       sy = src.y,
@@ -118,7 +123,7 @@ function renderCanvas2D() {
       isFocusRelated = false;
     if (hasHover && (e.source === hoveredNode || e.target === hoveredNode)) related = true;
     if (hasFocus && (e.source === focusNode || e.target === focusNode)) isFocusRelated = true;
-    if (showCycles && cycleNodes.size > 0 && cycleNodes.has(e.source.id) && cycleNodes.has(e.target.id))
+    if (showCycles && cycleNodes.size > 0 && cycleNodes.has((e.source as any).id) && cycleNodes.has((e.target as any).id))
       cycleEdge = true;
     ctx.strokeStyle = cycleEdge ? COLORS.cycle_edge : COLORS['edge_' + e.kind] || '#8b949e';
     ctx.lineWidth = related || isFocusRelated ? 2.5 / transform.k : 1.2 / transform.k;
@@ -259,9 +264,9 @@ function renderCanvas2D() {
 
   ctx.restore();
 }
-let gl = null,
-  glProgram = null,
-  glCanvas = null;
+let gl: WebGLRenderingContext | null = null,
+  glProgram: WebGLProgram | null = null,
+  glCanvas: HTMLCanvasElement | null = null;
 
 export function initWebGL() {
   if (gl) return true;

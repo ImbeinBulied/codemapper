@@ -18,6 +18,7 @@ import { startForceSimulation } from './simulation.js';
 import { computeDirectoryClusters, updateZoomLevel } from './minimap.js';
 import { initSearch } from './search.js';
 import { initInteraction } from './interaction.js';
+import { initUrlHandler, restoreStateFromUrl, applyViewState, saveStateToUrl } from './url-state.js';
 import { closeSidebar } from './sidebar.js';
 import './sidebar.js';
 import './dagre-layout.js';
@@ -141,7 +142,32 @@ function initGraph(data: any) {
   buildLegend();
   statusBar.classList.remove('show');
   updateZoomLevel();
+
+  // Restore view state from URL hash
+  const urlState = restoreStateFromUrl();
+  applyViewState(urlState, nm);
 }
+
+// ── URL state saving on interactions ───────────────────────────────
+
+let urlSaveTimer: ReturnType<typeof setTimeout> | null = null;
+function debouncedSaveUrl() {
+  if (urlSaveTimer) clearTimeout(urlSaveTimer);
+  urlSaveTimer = setTimeout(saveStateToUrl, 500);
+}
+
+// Hook into existing interaction functions
+const origFilter = (window as any).toggleFilter;
+(window as any).toggleFilter = function(kind: string) {
+  if (origFilter) origFilter(kind);
+  debouncedSaveUrl();
+};
+
+const origLayout = (window as any).cycleLayout;
+(window as any).cycleLayout = function() {
+  if (origLayout) origLayout();
+  setTimeout(saveStateToUrl, 600); // after layout applies
+};
 
 document.addEventListener('keydown', (e: KeyboardEvent) => {
   const target = e.target as HTMLElement;
@@ -214,6 +240,7 @@ async function init() {
   statusBar.classList.add('show');
   initSearch();
   initInteraction();
+  initUrlHandler();
   await loadGraph();
   resize();
   connectWebSocket();

@@ -3,6 +3,9 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import open from 'open';
+import readline from 'node:readline';
+import fs from 'node:fs';
+import path from 'node:path';
 import { startServer } from './server.js';
 import { analyzeCodebase } from './analyze/index.js';
 import { toSVG, toJSON } from './export.js';
@@ -75,6 +78,85 @@ program
         } else {
           process.stdout.write(json + '\n');
         }
+      }
+    } catch (err: any) {
+      console.error(chalk.red('Error:'), err.message);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('init')
+  .description('Scaffold a .codemaperrc.json config file')
+  .argument('[directory]', 'Project directory', '.')
+  .action(async (dir: string) => {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    const ask = (q: string): Promise<string> => new Promise(r => rl.question(q, r));
+
+    try {
+      console.log(chalk.cyan(' codemapper ') + chalk.gray(' — scaffold config\n'));
+
+      const include = (await ask('  Include pattern (e.g. src/ — leave empty for all): ')).trim();
+      const exclude = (await ask('  Exclude pattern (e.g. __tests__|vendor): ')).trim();
+      const langs = (await ask('  Languages (comma-separated, empty for auto-detect): ')).trim();
+
+      const config: Record<string, any> = {};
+      if (include) config.include = [include];
+      if (exclude) config.exclude = exclude.split('|').map(s => s.trim()).filter(Boolean);
+      if (langs) config.languages = langs.split(',').map(s => s.trim()).filter(Boolean);
+
+      const configPath = path.resolve(dir, '.codemaperrc.json');
+      fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+      console.log(chalk.green(`  Wrote ${chalk.bold(configPath)}`));
+    } catch (err: any) {
+      console.error(chalk.red('Error:'), err.message);
+    }
+    rl.close();
+  });
+
+program
+  .command('diff')
+  .description('Compare two analysis snapshots')
+  .argument('<before>', 'First JSON file (before)')
+  .argument('<after>', 'Second JSON file (after)')
+  .option('--json', 'Output as JSON')
+  .action((before: string, after: string, opts: { json?: boolean }) => {
+    try {
+      const a = JSON.parse(fs.readFileSync(before, 'utf-8'));
+      const b = JSON.parse(fs.readFileSync(after, 'utf-8'));
+
+      const aNodes = new Map(a.graph.nodes.map((n: any) => [n.id, n]));
+      const bNodes = new Map(b.graph.nodes.map((n: any) => [n.id, n]));
+      const aEdges = new Set(a.graph.edges.map((e: any) => `${e.source}|${e.kind}|${e.target}`));
+      const bEdges = new Set(b.graph.edges.map((e: any) => `${e.source}|${e.kind}|${e.target}`));
+
+      const added = b.graph.nodes.filter((n: any) => !aNodes.has(n.id));
+      const removed = a.graph.nodes.filter((n: any) => !bNodes.has(n.id));
+      const addedEdges = b.graph.edges.filter((e: any) => !aEdges.has(`${e.source}|${e.kind}|${e.target}`));
+      const removedEdges = a.graph.edges.filter((e: any) => !bEdges.has(`${e.source}|${e.kind}|${e.target}`));
+
+      const summary = {
+        before: { files: a.stats.files, functions: a.stats.functions, imports: a.stats.imports },
+        after: { files: b.stats.files, functions: b.stats.functions, imports: b.stats.imports },
+        added: { nodes: added.length, edges: addedEdges.length },
+        removed: { nodes: removed.length, edges: removedEdges.length },
+        newFiles: added.filter((n: any) => n.kind === 'file').map((n: any) => n.filePath),
+        removedFiles: removed.filter((n: any) => n.kind === 'file').map((n: any) => n.filePath),
+      };
+
+      if (opts.json) {
+        process.stdout.write(JSON.stringify(summary, null, 2));
+      } else {
+        const s = summary;
+        console.log(chalk.cyan('\n codemapper diff\n'));
+        console.log(`  Files:      ${s.before.files} → ${s.after.files} (${chalk.green('+' + (s.after.files - s.before.files))})`);
+        console.log(`  Functions:  ${s.before.functions} → ${s.after.functions}`);
+        console.log(`  Imports:    ${s.before.imports} → ${s.after.imports}`);
+        console.log(`  Added:      ${chalk.green(s.added.nodes + ' nodes, ' + s.added.edges + ' edges')}`);
+        console.log(`  Removed:    ${chalk.red(s.removed.nodes + ' nodes, ' + s.removed.edges + ' edges')}`);
+        if (s.newFiles.length > 0) console.log(`\n  New files:\n    ${s.newFiles.join('\n    ')}`);
+        if (s.removedFiles.length > 0) console.log(`\n  Removed files:\n    ${s.removedFiles.join('\n    ')}`);
+        console.log();
       }
     } catch (err: any) {
       console.error(chalk.red('Error:'), err.message);

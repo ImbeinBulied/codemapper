@@ -1,4 +1,3 @@
-// @ts-nocheck — Ported from plain JS. Types refined later.
 import {
   nodes,
   nodeMap,
@@ -36,7 +35,7 @@ export function updateMinimap() {
     minY = Infinity,
     maxY = -Infinity;
   for (const n of nodes) {
-    if (n.x == null) continue;
+    if (n.x == null || n.y == null) continue;
     if (n.x < minX) minX = n.x;
     if (n.x > maxX) maxX = n.x;
     if (n.y < minY) minY = n.y;
@@ -54,8 +53,8 @@ export function updateMinimap() {
   mmCtx.strokeStyle = '#30363d';
   mmCtx.lineWidth = 0.5;
   for (const e of edges) {
-    const src = e.source,
-      tgt = e.target;
+    const src = e.source as any,
+      tgt = e.target as any;
     if (!src.x || !tgt.x) continue;
     mmCtx.beginPath();
     mmCtx.moveTo(src.x * scale + ox, src.y * scale + oy);
@@ -64,7 +63,7 @@ export function updateMinimap() {
   }
 
   for (const n of nodes) {
-    if (n.x == null || hiddenKinds[n.kind]) continue;
+    if (n.x == null || n.y == null || hiddenKinds[n.kind]) continue;
     const c = COLORS[n.kind] || '#8b949e';
     mmCtx.fillStyle = c;
     mmCtx.fillRect(n.x * scale + ox - 1.5, n.y * scale + oy - 1.5, 3, 3);
@@ -91,7 +90,7 @@ minimap.addEventListener('click', (e: MouseEvent) => {
     minY = Infinity,
     maxY = -Infinity;
   for (const n of nodes) {
-    if (n.x == null) continue;
+    if (n.x == null || n.y == null) continue;
     if (n.x < minX) minX = n.x;
     if (n.x > maxX) maxX = n.x;
     if (n.y < minY) minY = n.y;

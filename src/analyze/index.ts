@@ -6,6 +6,9 @@ import { analyzeRust } from './rust.js';
 import { analyzePython } from './python.js';
 import { analyzeGo } from './go.js';
 import { analyzeJava } from './java.js';
+import { analyzeCSharp } from './csharp.js';
+import { analyzeSwift } from './swift.js';
+import { analyzePhp } from './php.js';
 import { loadConfig } from '../config.js';
 import { parseWithTreesitter, initTreesitter, tsParserAvailable } from './treesitter.js';
 import { detectCycles } from '../graph/cycles.js';
@@ -17,6 +20,9 @@ const LANG_DETECTORS: [string, string[]][] = [
   ['python', ['.py']],
   ['go', ['.go']],
   ['java', ['.java']],
+  ['csharp', ['.cs']],
+  ['swift', ['.swift']],
+  ['php', ['.php']],
 ];
 
 async function detectLanguages(dir: string): Promise<string[]> {
@@ -157,6 +163,9 @@ export async function analyzeCodebase(dir: string, filter?: string, deep?: boole
     python: analyzePython,
     go: analyzeGo,
     java: analyzeJava,
+    csharp: analyzeCSharp,
+    swift: analyzeSwift,
+    php: analyzePhp,
   };
 
   for (const lang of langs) {

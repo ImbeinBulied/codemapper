@@ -417,6 +417,7 @@ function updateFilterButtons() {
     else btn.classList.remove('hidden-kind');
   });
 }
+(window as any).updateFilterButtons = updateFilterButtons;
 
 export function initInteraction() {
   // handlers already bound above

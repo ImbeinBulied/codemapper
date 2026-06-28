@@ -106,7 +106,13 @@ export async function startServer(
         return;
       }
       const fullPath = path.resolve(path.join(resolvedDir, filePath));
-      const resolved = fs.realpathSync(fullPath);
+      // Path traversal guard: check resolved string before realpath
+      if (!fullPath.startsWith(resolvedDir)) {
+        res.status(403).json({ error: 'access denied' });
+        return;
+      }
+      // Realpath resolves symlinks; skip if file doesn't exist
+      const resolved = fs.existsSync(fullPath) ? fs.realpathSync(fullPath) : fullPath;
       if (!resolved.startsWith(resolvedDir)) {
         res.status(403).json({ error: 'access denied' });
         return;

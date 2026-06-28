@@ -104,6 +104,21 @@ function analyzeFile(filePath: string, relPath: string, rootDir: string): FileRe
   };
   result.nodes.push(fileNode);
 
+  // Require calls (CommonJS)
+  const REQUIRE_RE = /(?:const|let|var)\s+(?:\{[^}]*\}|\w+)\s*=\s*require\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g;
+  for (const m of text.matchAll(REQUIRE_RE)) {
+    const mod = m[1];
+    addEdge('imports', fileNode.id, `module:${mod}`, mod.split('/').pop() || mod);
+  }
+  // Side-effect require
+  const REQUIRE_SIDE_RE = /require\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g;
+  for (const m of text.matchAll(REQUIRE_SIDE_RE)) {
+    const mod = m[1];
+    if (!(/(?:const|let|var)\s+(?:\{[^}]*\}|\w+)\s*=\s*require/.test(text.substring(Math.max(0, (m.index || 0) - 40), m.index || 0)))) {
+      addEdge('imports', fileNode.id, `module:${mod}`, mod.split('/').pop() || mod);
+    }
+  }
+
   const sourceFile = ts.createSourceFile(relPath, text, ts.ScriptTarget.Latest, true, scriptKindFromPath(filePath));
 
   // ── Walk helpers ──
