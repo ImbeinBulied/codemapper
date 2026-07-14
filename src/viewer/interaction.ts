@@ -35,10 +35,32 @@ import { render } from './renderer.js';
 import { updateZoomLevel, computeDirectoryClusters } from './minimap.js';
 import { selectNode, closeSidebar } from './sidebar.js';
 
+declare const d3: any;
+
 const container = document.getElementById('canvas-container')!;
 const canvas = document.getElementById('canvas') as HTMLCanvasElement;
 const tooltip = document.getElementById('tooltip')!;
 const contextMenu = document.getElementById('context-menu')!;
+
+// Quadtree for O(log n) hit testing
+let quadtree: any = null;
+let quadtreeDirty = true;
+
+export function invalidateQuadtree() {
+  quadtreeDirty = true;
+}
+
+function buildQuadtree() {
+  const visibleNodes = nodes.filter(
+    (n) => n.x != null && n.y != null && n.kind !== 'directory' && !hiddenKinds[n.kind],
+  );
+  quadtree = d3
+    .quadtree()
+    .x((d: any) => d.x)
+    .y((d: any) => d.y)
+    .addAll(visibleNodes);
+  quadtreeDirty = false;
+}
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -53,21 +75,14 @@ function screenToCanvas(sx: number, sy: number) {
 }
 
 function hitTest(cx: number, cy: number): ViewNode | null {
-  let best: ViewNode | null = null,
-    bestDist = Infinity;
-  for (const n of nodes) {
-    if (n.x == null || n.y == null) continue;
-    if (n.kind === 'directory') continue;
-    const size = (NODE_SIZE[n.kind] || 20) * 0.5 + 4;
-    const dx = cx - n.x,
-      dy = cy - n.y;
-    const dist = dx * dx + dy * dy;
-    if (dist < size * size && dist < bestDist) {
-      best = n;
-      bestDist = dist;
-    }
-  }
-  return best;
+  if (quadtreeDirty || !quadtree) buildQuadtree();
+  if (!quadtree) return null;
+
+  // Use quadtree.find() for O(log n) nearest-neighbor lookup
+  const searchRadius = 30; // max hit distance
+  const found = quadtree.find(cx, cy, searchRadius);
+  if (found) return found as ViewNode;
+  return null;
 }
 
 function hitTestEdge(cx: number, cy: number): ViewEdge | null {
@@ -124,7 +139,25 @@ container.addEventListener('mousedown', (e: MouseEvent) => {
   setPanStart({ x: e.clientX - transform.x, y: e.clientY - transform.y });
 });
 
-container.addEventListener('mousemove', (e: MouseEvent) => {
+container.addEventListener(
+  'mousemove',
+  ((e: MouseEvent) => {
+    // Store event data, process on next frame via rAF
+    pendingMouseEvent = e;
+    if (!rafPending) {
+      rafPending = true;
+      requestAnimationFrame(processMouseMove);
+    }
+  }) as any,
+);
+
+let pendingMouseEvent: MouseEvent | null = null;
+let rafPending = false;
+
+function processMouseMove() {
+  rafPending = false;
+  const e = pendingMouseEvent;
+  if (!e) return;
   const p = screenToCanvas(e.clientX, e.clientY);
 
   if (isDragging && dragNode) {
@@ -196,7 +229,7 @@ container.addEventListener('mousemove', (e: MouseEvent) => {
     transform.y = e.clientY - panStart.y;
     render();
   }
-});
+}
 
 container.addEventListener('mouseup', () => {
   if (isDragging && dragNode) {

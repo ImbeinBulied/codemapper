@@ -2,6 +2,7 @@ import { nodes, edges, nodeMap, sim, simSettled, layoutMode, setSim, setSimSettl
 import { NODE_SIZE } from './colors.js';
 import { render } from './renderer.js';
 import { computeDirectoryClusters } from './minimap.js';
+import { invalidateQuadtree } from './interaction.js';
 
 declare const d3: any;
 
@@ -43,6 +44,7 @@ export function startForceSimulation() {
     )
     .alphaDecay(0.05)
     .on('tick', () => {
+      invalidateQuadtree();
       computeDirectoryClusters();
       render();
     })

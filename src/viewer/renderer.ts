@@ -59,6 +59,13 @@ function renderCanvas2D() {
   ctx.translate(transform.x, transform.y);
   ctx.scale(transform.k, transform.k);
 
+  // Viewport culling: calculate visible bounds with 50px padding
+  const PAD = 50 / transform.k;
+  const visMinX = -transform.x / transform.k - PAD;
+  const visMinY = -transform.y / transform.k - PAD;
+  const visMaxX = visMinX + w / transform.k + PAD * 2;
+  const visMaxY = visMinY + h / transform.k + PAD * 2;
+
   const gridSize = 40;
   ctx.strokeStyle = '#161b22';
   ctx.lineWidth = 1 / transform.k;
@@ -114,6 +121,14 @@ function renderCanvas2D() {
     const src = e.source as any,
       tgt = e.target as any;
     if (!src.x || !tgt.x) continue;
+    // Viewport culling: skip edges entirely outside visible area
+    if (
+      (src.x < visMinX && tgt.x < visMinX) ||
+      (src.x > visMaxX && tgt.x > visMaxX) ||
+      (src.y < visMinY && tgt.y < visMinY) ||
+      (src.y > visMaxY && tgt.y > visMaxY)
+    )
+      continue;
     const sx = src.x,
       sy = src.y,
       tx = tgt.x,
@@ -153,6 +168,8 @@ function renderCanvas2D() {
 
   const drawnNodes = nodes.filter((n) => {
     if (n.x == null) return false;
+    // Viewport culling: skip nodes outside visible area
+    if (n.x < visMinX || n.x > visMaxX || n.y < visMinY || n.y > visMaxY) return false;
     if (!hiddenKinds[n.kind]) return true;
     return transitioningNodes.has(n.id) && transitioningNodes.get(n.id)! > 0;
   });
@@ -273,7 +290,16 @@ let gl: WebGLRenderingContext | null = null,
   glProgram: WebGLProgram | null = null,
   glCanvas: HTMLCanvasElement | null = null,
   glEdgeBuffer: WebGLBuffer | null = null,
-  glNodeBuffer: WebGLBuffer | null = null;
+  glNodeBuffer: WebGLBuffer | null = null,
+  glEdgeData: Float32Array = new Float32Array(0),
+  glNodeData: Float32Array = new Float32Array(0),
+  glLocations: {
+    uOrigin: WebGLUniformLocation | null;
+    uScale: WebGLUniformLocation | null;
+    uRes: WebGLUniformLocation | null;
+    uColor: WebGLUniformLocation | null;
+    aPos: number;
+  } | null = null;
 
 export function initWebGL() {
   if (gl) return true;
@@ -304,6 +330,14 @@ export function initWebGL() {
     gl.linkProgram(glProgram);
     if (!gl.getProgramParameter(glProgram, gl.LINK_STATUS)) return false;
     gl.useProgram(glProgram);
+    // Cache uniform/attribute locations
+    glLocations = {
+      uOrigin: gl.getUniformLocation(glProgram, 'uOrigin'),
+      uScale: gl.getUniformLocation(glProgram, 'uScale'),
+      uRes: gl.getUniformLocation(glProgram, 'uRes'),
+      uColor: gl.getUniformLocation(glProgram, 'uColor'),
+      aPos: gl.getAttribLocation(glProgram, 'aPos'),
+    };
     gl.clearColor(0.05, 0.07, 0.09, 1.0);
     setGlRunning(true);
     return true;
