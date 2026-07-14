@@ -11,6 +11,9 @@ import {
   setFocusNode,
   theme,
   setTheme,
+  setHotspotMode,
+  setHotspotData,
+  hotspotMode,
 } from './state.js';
 import { render, initWebGL } from './renderer.js';
 import { setTheme as setColorsTheme, toggleColorblindMode, isColorblind } from './colors.js';
@@ -20,6 +23,7 @@ import { initSearch } from './search.js';
 import { initInteraction } from './interaction.js';
 import { initUrlHandler, restoreStateFromUrl, applyViewState, saveStateToUrl } from './url-state.js';
 import { closeSidebar } from './sidebar.js';
+import type { HotspotMode, HotspotData } from './hotspot.js';
 import './sidebar.js';
 import './dagre-layout.js';
 import './export-helper.js';
@@ -143,6 +147,21 @@ function initGraph(data: any) {
   statusBar.classList.remove('show');
   updateZoomLevel();
 
+  // Populate hotspot data from analytics and git info
+  if (data.analytics && data.analytics.metrics) {
+    const hData = new Map<string, HotspotData>();
+    for (const [id, m] of data.analytics.metrics) {
+      hData.set(id, {
+        nodeId: id,
+        complexity: m.complexity,
+        churn: m.churn,
+        coupling: m.coupling,
+        maintainability: m.maintainability,
+      });
+    }
+    setHotspotData(hData);
+  }
+
   // Restore view state from URL hash
   const urlState = restoreStateFromUrl();
   applyViewState(urlState, nm);
@@ -227,6 +246,22 @@ document.addEventListener('keydown', (e: KeyboardEvent) => {
         e.preventDefault();
         (window as any).resetZoom();
       }
+      break;
+    case 'h':
+      e.preventDefault();
+      (window as any).toggleHotspotMenu();
+      break;
+    case '1':
+      (window as any).setHotspotMode('complexity');
+      break;
+    case '2':
+      (window as any).setHotspotMode('churn');
+      break;
+    case '3':
+      (window as any).setHotspotMode('coupling');
+      break;
+    case '4':
+      (window as any).setHotspotMode('maintainability');
       break;
   }
 });
@@ -342,3 +377,50 @@ try {
 
 window.addEventListener('resize', resize);
 document.addEventListener('DOMContentLoaded', init);
+
+// ── Hotspot mode toggle ───────────────────────────────────────────────
+
+let hotspotMenuOpen = false;
+
+(window as any).toggleHotspotMenu = () => {
+  const menu = document.getElementById('hotspot-menu');
+  const btn = document.getElementById('hotspot-btn');
+  if (!menu || !btn) return;
+  hotspotMenuOpen = !hotspotMenuOpen;
+  menu.classList.toggle('hidden', !hotspotMenuOpen);
+  btn.classList.toggle('active', hotspotMenuOpen);
+};
+
+(window as any).setHotspotMode = (mode: HotspotMode) => {
+  setHotspotMode(mode);
+  // Update button state
+  const btn = document.getElementById('hotspot-btn');
+  if (btn) {
+    btn.classList.toggle('active', mode !== 'default');
+    btn.setAttribute('data-mode', mode);
+  }
+  // Update menu active state
+  const menu = document.getElementById('hotspot-menu');
+  if (menu) {
+    menu.querySelectorAll('button').forEach((b: HTMLElement) => {
+      b.classList.toggle('active', (b as HTMLElement).dataset.mode === mode);
+    });
+  }
+  // Close menu
+  const hotspotMenu = document.getElementById('hotspot-menu');
+  if (hotspotMenu) hotspotMenu.classList.add('hidden');
+  hotspotMenuOpen = false;
+  if (btn) btn.classList.remove('active');
+  render();
+};
+
+// Close hotspot menu on outside click
+document.addEventListener('click', (e: MouseEvent) => {
+  const menu = document.getElementById('hotspot-menu');
+  const btn = document.getElementById('hotspot-btn');
+  if (menu && btn && !menu.contains(e.target as Node) && e.target !== btn) {
+    menu.classList.add('hidden');
+    hotspotMenuOpen = false;
+    btn.classList.remove('active');
+  }
+});

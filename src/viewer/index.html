@@ -141,6 +141,25 @@
         ◐
       </button>
       <span class="sep"></span>
+      <div class="toolbar-group">
+        <button
+          id="hotspot-btn"
+          class="filter-btn"
+          onclick="window.toggleHotspotMenu()"
+          title="Hotspot mode (H)"
+          aria-label="Toggle hotspot visualization"
+          data-mode="default"
+        >
+          🔥
+        </button>
+        <div id="hotspot-menu" class="hidden">
+          <button data-mode="default" onclick="window.setHotspotMode('default')">Default</button>
+          <button data-mode="complexity" onclick="window.setHotspotMode('complexity')">Complexity</button>
+          <button data-mode="churn" onclick="window.setHotspotMode('churn')">Churn (90d)</button>
+          <button data-mode="maintainability" onclick="window.setHotspotMode('maintainability')">Maintainability</button>
+        </div>
+      </div>
+      <span class="sep"></span>
       <div class="export-btn" onclick="window.toggleExport(event)">
         <span aria-label="Export options">Export &#9662;</span>
         <div id="export-dropdown">
@@ -166,7 +185,7 @@
     <div id="help-hint">
       <kbd>/</kbd> search &nbsp; <kbd>Tab</kbd> cycle nodes &nbsp; <kbd>Enter</kbd> select &nbsp; <kbd>Drag</kbd> pan
       &nbsp; <kbd>Scroll</kbd> zoom &nbsp; <kbd>Click</kbd> inspect &nbsp; <kbd>Esc</kbd> close &nbsp;
-      <kbd>?</kbd> shortcuts &nbsp; <kbd>Right-click</kbd> menu
+      <kbd>H</kbd> hotspot &nbsp; <kbd>?</kbd> shortcuts &nbsp; <kbd>Right-click</kbd> menu
     </div>
     <div id="sidebar">
       <div id="sidebar-header"></div>

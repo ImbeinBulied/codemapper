@@ -26,7 +26,30 @@ export interface NodeMetrics {
   complexity: number;
   /** Maintainability index (0-171, higher = more maintainable) */
   maintainability: number;
+  /** Git churn — number of commits in last 90 days */
+  churn: number;
+  /** Normalized heat score (0-1, higher = hotter) */
+  heat: number;
 }
+
+/** Weights for composite heat score calculation */
+export interface HeatWeights {
+  /** Weight for complexity component (default: 0.4) */
+  complexity: number;
+  /** Weight for churn component (default: 0.3) */
+  churn: number;
+  /** Weight for coupling component (default: 0.2) */
+  coupling: number;
+  /** Weight for maintainability component (default: 0.1, inverted) */
+  maintainability: number;
+}
+
+const DEFAULT_HEAT_WEIGHTS: HeatWeights = {
+  complexity: 0.4,
+  churn: 0.3,
+  coupling: 0.2,
+  maintainability: 0.1,
+};
 
 export interface AnalyticsResult {
   metrics: Map<string, NodeMetrics>;
@@ -36,9 +59,48 @@ export interface AnalyticsResult {
   mostUnstable: Array<{ id: string; label: string; instability: number }>;
   /** Average coupling across all file nodes */
   avgCoupling: number;
+  /** Heat weights used for composite score */
+  heatWeights: HeatWeights;
+  /** Min-max ranges for normalization */
+  heatRanges: {
+    complexity: { min: number; max: number };
+    churn: { min: number; max: number };
+    coupling: { min: number; max: number };
+    maintainability: { min: number; max: number };
+  };
 }
 
-export function analyzeGraph(nodes: GraphNode[], edges: GraphEdge[], sources?: Map<string, string>): AnalyticsResult {
+/** Min-max normalize a value to [0, 1] */
+function normalize(value: number, min: number, max: number): number {
+  if (max === min) return 0;
+  return Math.max(0, Math.min(1, (value - min) / (max - min)));
+}
+
+/** Compute composite heat score from normalized components */
+function computeHeatScore(
+  complexityNorm: number,
+  churnNorm: number,
+  couplingNorm: number,
+  maintainabilityNorm: number,
+  weights: HeatWeights,
+): number {
+  // Maintainability is inverted: low maintainability = high heat
+  const maintHeat = 1 - maintainabilityNorm;
+  return (
+    weights.complexity * complexityNorm +
+    weights.churn * churnNorm +
+    weights.coupling * couplingNorm +
+    weights.maintainability * maintHeat
+  );
+}
+
+export function analyzeGraph(
+  nodes: GraphNode[],
+  edges: GraphEdge[],
+  sources?: Map<string, string>,
+  churnData?: Map<string, number>,
+  heatWeights: HeatWeights = DEFAULT_HEAT_WEIGHTS,
+): AnalyticsResult {
   const metrics = new Map<string, NodeMetrics>();
   const fileNodes = nodes.filter((n) => n.kind === 'file');
   const fileIds = new Set(fileNodes.map((n) => n.id));
@@ -53,6 +115,8 @@ export function analyzeGraph(nodes: GraphNode[], edges: GraphEdge[], sources?: M
       loc: 0,
       complexity: 0,
       maintainability: 0,
+      churn: 0,
+      heat: 0,
     };
     // Compute code metrics from source if available
     if (sources) {
@@ -65,6 +129,11 @@ export function analyzeGraph(nodes: GraphNode[], edges: GraphEdge[], sources?: M
         m.complexity = codeMetrics.complexity;
         m.maintainability = codeMetrics.maintainability;
       }
+    }
+    // Get churn data if available
+    if (churnData) {
+      const filePath = n.id.replace(/^file:/, '');
+      m.churn = churnData.get(filePath) || 0;
     }
     metrics.set(n.id, m);
   }
@@ -115,6 +184,28 @@ export function analyzeGraph(nodes: GraphNode[], edges: GraphEdge[], sources?: M
     m.coupling = total + m.coupling; // fanIn + fanOut + call-based coupling
   }
 
+  // Compute heat score ranges for normalization
+  const complexities = Array.from(metrics.values()).map((m) => m.complexity);
+  const churndata = Array.from(metrics.values()).map((m) => m.churn);
+  const couplingsArr = Array.from(metrics.values()).map((m) => m.coupling);
+  const maintainabilities = Array.from(metrics.values()).map((m) => m.maintainability);
+
+  const heatRanges = {
+    complexity: { min: Math.min(...complexities), max: Math.max(...complexities) },
+    churn: { min: Math.min(...churndata), max: Math.max(...churndata) },
+    coupling: { min: Math.min(...couplingsArr), max: Math.max(...couplingsArr) },
+    maintainability: { min: Math.min(...maintainabilities), max: Math.max(...maintainabilities) },
+  };
+
+  // Compute normalized heat scores for each node
+  for (const [id, m] of metrics) {
+    const cNorm = normalize(m.complexity, heatRanges.complexity.min, heatRanges.complexity.max);
+    const chNorm = normalize(m.churn, heatRanges.churn.min, heatRanges.churn.max);
+    const coNorm = normalize(m.coupling, heatRanges.coupling.min, heatRanges.coupling.max);
+    const mNorm = normalize(m.maintainability, heatRanges.maintainability.min, heatRanges.maintainability.max);
+    m.heat = computeHeatScore(cNorm, chNorm, coNorm, mNorm, heatWeights);
+  }
+
   // Rank hubs (most fan-in)
   const hubs = Array.from(metrics.entries())
     .map(([id, m]) => ({ id, label: id.split('/').pop() || id, fanIn: m.fanIn }))
@@ -133,5 +224,5 @@ export function analyzeGraph(nodes: GraphNode[], edges: GraphEdge[], sources?: M
   const couplings = Array.from(metrics.values()).map((m) => m.coupling);
   const avgCoupling = couplings.length > 0 ? couplings.reduce((a, b) => a + b, 0) / couplings.length : 0;
 
-  return { metrics, hubs, mostUnstable, avgCoupling };
+  return { metrics, hubs, mostUnstable, avgCoupling, heatWeights, heatRanges };
 }
