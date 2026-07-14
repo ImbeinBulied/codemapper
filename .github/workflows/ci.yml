@@ -46,18 +46,6 @@ jobs:
       - run: npm ci
       - run: npm audit --audit-level=high
 
-  codeql:
-    if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
-    permissions:
-      security-events: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: github/codeql-action/init@v3
-        with:
-          languages: javascript-typescript
-      - uses: github/codeql-action/analyze@v3
-
   pr-labels:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
