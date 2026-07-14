@@ -81,3 +81,19 @@ export function getHeatmapLegend(
       return null;
   }
 }
+
+/** Get min/max range for hotspot mode */
+export function getHotspotRange(mode: HotspotMode): { min: number; max: number } {
+  switch (mode) {
+    case 'complexity':
+      return { min: 1, max: 20 };
+    case 'churn':
+      return { min: 0, max: 50 };
+    case 'coupling':
+      return { min: 0, max: 30 };
+    case 'maintainability':
+      return { min: 0, max: 171 };
+    default:
+      return { min: 0, max: 1 };
+  }
+}
