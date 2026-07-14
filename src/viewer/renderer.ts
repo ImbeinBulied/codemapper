@@ -291,8 +291,11 @@ let gl: WebGLRenderingContext | null = null,
   glCanvas: HTMLCanvasElement | null = null,
   glEdgeBuffer: WebGLBuffer | null = null,
   glNodeBuffer: WebGLBuffer | null = null,
-  glEdgeData: Float32Array = new Float32Array(0),
-  glNodeData: Float32Array = new Float32Array(0),
+  // Pre-allocated typed arrays (grown on demand, never shrunk)
+  glEdgeData: Float32Array = new Float32Array(4096),
+  glEdgeCount = 0,
+  glNodeData: Float32Array = new Float32Array(2048),
+  glNodeCount = 0,
   glLocations: {
     uOrigin: WebGLUniformLocation | null;
     uScale: WebGLUniformLocation | null;
@@ -347,7 +350,7 @@ export function initWebGL() {
 }
 
 function renderWebGL() {
-  if (!gl || !glProgram) return;
+  if (!gl || !glProgram || !glLocations) return;
   const container = document.getElementById('canvas-container');
   const w = container.clientWidth,
     h = container.clientHeight;
@@ -355,43 +358,69 @@ function renderWebGL() {
   glCanvas.height = h;
   gl.viewport(0, 0, w, h);
   gl.clear(gl.COLOR_BUFFER_BIT);
-  const uOrigin = gl.getUniformLocation(glProgram, 'uOrigin');
-  const uScale = gl.getUniformLocation(glProgram, 'uScale');
-  const uRes = gl.getUniformLocation(glProgram, 'uRes');
-  const uColor = gl.getUniformLocation(glProgram, 'uColor');
+  // Use cached uniform/attribute locations (no per-frame lookups)
+  const { uOrigin, uScale, uRes, uColor, aPos } = glLocations;
   gl.uniform2f(uOrigin, transform.x, transform.y);
   gl.uniform1f(uScale, transform.k);
   gl.uniform2f(uRes, w, h);
-  const aPos = gl.getAttribLocation(glProgram, 'aPos');
-  const edgeData = [];
+
+  // ── Edges ──
+  glEdgeCount = 0;
   for (const e of edges) {
     const src = e.source,
       tgt = e.target;
     if (!src.x || !tgt.x) continue;
-    edgeData.push(src.x, src.y, tgt.x, tgt.y);
+    // Grow buffer if needed (2x strategy)
+    if (glEdgeCount + 4 > glEdgeData.length) {
+      const grown = new Float32Array(glEdgeData.length * 2);
+      grown.set(glEdgeData);
+      glEdgeData = grown;
+    }
+    glEdgeData[glEdgeCount++] = src.x;
+    glEdgeData[glEdgeCount++] = src.y;
+    glEdgeData[glEdgeCount++] = tgt.x;
+    glEdgeData[glEdgeCount++] = tgt.y;
   }
-  if (edgeData.length) {
+  if (glEdgeCount) {
     if (!glEdgeBuffer) glEdgeBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, glEdgeBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(edgeData), gl.STREAM_DRAW);
+    if (glEdgeCount <= glEdgeData.length / 2) {
+      // Fits in existing GPU buffer — sub-update
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, glEdgeData.subarray(0, glEdgeCount));
+    } else {
+      // Buffer too small — reallocate on GPU
+      gl.bufferData(gl.ARRAY_BUFFER, glEdgeData.subarray(0, glEdgeCount), gl.STREAM_DRAW);
+    }
     gl.enableVertexAttribArray(aPos);
     gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
     gl.uniform4f(uColor, 0.3, 0.4, 0.5, 0.3);
-    gl.drawArrays(gl.LINES, 0, edgeData.length / 2);
+    gl.drawArrays(gl.LINES, 0, glEdgeCount / 2);
   }
-  const nodeData = [];
+
+  // ── Nodes ──
+  glNodeCount = 0;
   for (const n of nodes) {
     if (n.x == null || hiddenKinds[n.kind]) continue;
-    nodeData.push(n.x, n.y);
+    if (glNodeCount + 2 > glNodeData.length) {
+      const grown = new Float32Array(glNodeData.length * 2);
+      grown.set(glNodeData);
+      glNodeData = grown;
+    }
+    glNodeData[glNodeCount++] = n.x;
+    glNodeData[glNodeCount++] = n.y;
   }
-  if (nodeData.length) {
+  if (glNodeCount) {
     if (!glNodeBuffer) glNodeBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, glNodeBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(nodeData), gl.STREAM_DRAW);
+    if (glNodeCount <= glNodeData.length / 2) {
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, glNodeData.subarray(0, glNodeCount));
+    } else {
+      gl.bufferData(gl.ARRAY_BUFFER, glNodeData.subarray(0, glNodeCount), gl.STREAM_DRAW);
+    }
     gl.enableVertexAttribArray(aPos);
     gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
     gl.uniform4f(uColor, 0.34, 0.65, 1.0, 0.8);
-    gl.drawArrays(gl.POINTS, 0, nodeData.length);
+    gl.drawArrays(gl.POINTS, 0, glNodeCount);
   }
   updateMinimap();
 }

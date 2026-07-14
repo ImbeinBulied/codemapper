@@ -74,3 +74,39 @@ export let NODE_SIZE: Record<string, number> = {
 export function setTheme(theme: 'dark' | 'light') {
   Object.assign(COLORS, theme === 'light' ? LIGHT : DARK);
 }
+
+// Colorblind-safe palette (IBM Design / Paul Tol inspired)
+export const COLORBLIND_SAFE: ColorSet = {
+  file: '#E8C547',
+  function: '#4B90D9',
+  class: '#E87D47',
+  interface: '#7B5EB5',
+  type: '#47B5A0',
+  module: '#8B8B8B',
+  call: '#D94B4B',
+  directory: '#555555',
+  edge_imports: '#8B8B8B',
+  edge_calls: '#D94B4B',
+  edge_extends: '#4B90D9',
+  edge_implements: '#7B5EB5',
+  edge_contains: '#555555',
+  edge_exports: '#47B5A0',
+  cycle: '#ff4444',
+  cycle_edge: '#ff4444',
+  bg: '#0d1117',
+};
+
+export let isColorblind = false;
+
+export function setColorblind(v: boolean) {
+  isColorblind = v;
+}
+
+export function toggleColorblindMode() {
+  isColorblind = !isColorblind;
+  if (isColorblind) {
+    Object.assign(COLORS, COLORBLIND_SAFE);
+  } else {
+    Object.assign(COLORS, { ...DARK }); // default to dark; theme toggle re-applies
+  }
+}

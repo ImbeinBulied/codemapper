@@ -41,6 +41,11 @@ const container = document.getElementById('canvas-container')!;
 const canvas = document.getElementById('canvas') as HTMLCanvasElement;
 const tooltip = document.getElementById('tooltip')!;
 const contextMenu = document.getElementById('context-menu')!;
+const ariaStatus = document.getElementById('aria-status');
+
+// Keyboard navigation state
+let keyboardFocusIndex = -1;
+let keyboardDialogOpen = false;
 
 // Quadtree for O(log n) hit testing
 let quadtree: any = null;
@@ -139,17 +144,14 @@ container.addEventListener('mousedown', (e: MouseEvent) => {
   setPanStart({ x: e.clientX - transform.x, y: e.clientY - transform.y });
 });
 
-container.addEventListener(
-  'mousemove',
-  ((e: MouseEvent) => {
-    // Store event data, process on next frame via rAF
-    pendingMouseEvent = e;
-    if (!rafPending) {
-      rafPending = true;
-      requestAnimationFrame(processMouseMove);
-    }
-  }) as any,
-);
+container.addEventListener('mousemove', ((e: MouseEvent) => {
+  // Store event data, process on next frame via rAF
+  pendingMouseEvent = e;
+  if (!rafPending) {
+    rafPending = true;
+    requestAnimationFrame(processMouseMove);
+  }
+}) as any);
 
 let pendingMouseEvent: MouseEvent | null = null;
 let rafPending = false;
@@ -469,6 +471,150 @@ function updateFilterButtons() {
 }
 (window as any).updateFilterButtons = updateFilterButtons;
 
+// ── Keyboard navigation ────────────────────────────────────────────
+
+function getVisibleNodes(): ViewNode[] {
+  return nodes.filter((n) => n.x != null && n.y != null && n.kind !== 'directory' && !hiddenKinds[n.kind]);
+}
+
+function announceStatus(msg: string) {
+  if (ariaStatus) ariaStatus.textContent = msg;
+}
+
+function updateAriaPressed(buttonId: string, pressed: boolean) {
+  const btn = document.getElementById(buttonId);
+  if (btn) btn.setAttribute('aria-pressed', String(pressed));
+}
+
+function showKeyboardShortcutsDialog() {
+  if (keyboardDialogOpen) return;
+  keyboardDialogOpen = true;
+  const existing = document.getElementById('kb-dialog');
+  if (existing) existing.remove();
+
+  const dialog = document.createElement('div');
+  dialog.id = 'kb-dialog';
+  dialog.setAttribute('role', 'dialog');
+  dialog.setAttribute('aria-label', 'Keyboard shortcuts');
+  dialog.innerHTML = `
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:50;display:flex;align-items:center;justify-content:center" id="kb-overlay">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 24px;max-width:380px;width:90%;font-size:13px;color:var(--text)">
+        <h2 style="margin:0 0 12px;font-size:16px">Keyboard Shortcuts</h2>
+        <table style="width:100%;border-collapse:collapse">
+          <tr><td style="padding:4px 0"><kbd>/</kbd></td><td>Focus search</td></tr>
+          <tr><td style="padding:4px 0"><kbd>Tab</kbd></td><td>Cycle through nodes</td></tr>
+          <tr><td style="padding:4px 0"><kbd>Shift+Tab</kbd></td><td>Cycle nodes backward</td></tr>
+          <tr><td style="padding:4px 0"><kbd>Enter</kbd></td><td>Select focused node</td></tr>
+          <tr><td style="padding:4px 0"><kbd>Escape</kbd></td><td>Close sidebar / deselect</td></tr>
+          <tr><td style="padding:4px 0"><kbd>?</kbd></td><td>Show this dialog</td></tr>
+          <tr><td style="padding:4px 0"><kbd>Scroll</kbd></td><td>Zoom in/out</td></tr>
+          <tr><td style="padding:4px 0"><kbd>Drag</kbd></td><td>Pan canvas</td></tr>
+          <tr><td style="padding:4px 0"><kbd>Click</kbd></td><td>Inspect node</td></tr>
+          <tr><td style="padding:4px 0"><kbd>Right-click</kbd></td><td>Context menu</td></tr>
+        </table>
+        <button id="kb-close" style="margin-top:14px;width:100%;padding:6px;border:1px solid var(--border);border-radius:6px;background:var(--surface-hover);color:var(--text);cursor:pointer;font-size:12px">Close</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(dialog);
+
+  const closeDialog = () => {
+    keyboardDialogOpen = false;
+    dialog.remove();
+  };
+  document.getElementById('kb-close')?.addEventListener('click', closeDialog);
+  document.getElementById('kb-overlay')?.addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeDialog();
+  });
+  document.addEventListener('keydown', function kbHandler(e: KeyboardEvent) {
+    if (e.key === 'Escape' || e.key === '?') {
+      closeDialog();
+      document.removeEventListener('keydown', kbHandler);
+    }
+  });
+  announceStatus('Keyboard shortcuts dialog opened');
+}
+
+function onCanvasKeydown(e: KeyboardEvent) {
+  const searchInput = document.getElementById('search-input') as HTMLInputElement;
+  const isSearchFocused = document.activeElement === searchInput;
+
+  // ? to show keyboard shortcuts (only when not typing in search)
+  if (e.key === '?' && !isSearchFocused && !keyboardDialogOpen) {
+    e.preventDefault();
+    showKeyboardShortcutsDialog();
+    return;
+  }
+
+  // / to focus search
+  if (e.key === '/' && !isSearchFocused && !keyboardDialogOpen) {
+    e.preventDefault();
+    searchInput?.focus();
+    return;
+  }
+
+  // Tab / Shift+Tab to cycle nodes (only when canvas or body is focused)
+  if (e.key === 'Tab' && !isSearchFocused && !keyboardDialogOpen) {
+    e.preventDefault();
+    const visible = getVisibleNodes();
+    if (visible.length === 0) return;
+
+    if (e.shiftKey) {
+      keyboardFocusIndex = keyboardFocusIndex <= 0 ? visible.length - 1 : keyboardFocusIndex - 1;
+    } else {
+      keyboardFocusIndex = keyboardFocusIndex >= visible.length - 1 ? 0 : keyboardFocusIndex + 1;
+    }
+
+    const node = visible[keyboardFocusIndex];
+    setFocusNode(node);
+    // Pan to keep focused node in view
+    if (node.x != null && node.y != null) {
+      const vw = container.clientWidth;
+      const vh = container.clientHeight;
+      const sx = node.x * transform.k + transform.x;
+      const sy = node.y * transform.k + transform.y;
+      const margin = 100;
+      if (sx < margin) transform.x += margin - sx;
+      if (sx > vw - margin) transform.x -= sx - (vw - margin);
+      if (sy < margin) transform.y += margin - sy;
+      if (sy > vh - margin) transform.y -= sy - (vh - margin);
+    }
+    render();
+    announceStatus(`Focused node ${keyboardFocusIndex + 1} of ${visible.length}: ${node.label} (${node.kind})`);
+    return;
+  }
+
+  // Enter to select focused node
+  if (e.key === 'Enter' && !isSearchFocused && !keyboardDialogOpen) {
+    const focused = focusNode;
+    if (focused) {
+      e.preventDefault();
+      selectNode(focused);
+      announceStatus(`Selected ${focused.label}`);
+    }
+    return;
+  }
+
+  // Escape to close sidebar / deselect
+  if (e.key === 'Escape' && !isSearchFocused && !keyboardDialogOpen) {
+    e.preventDefault();
+    keyboardFocusIndex = -1;
+    setFocusNode(null);
+    closeSidebar();
+    contextMenu.classList.remove('show');
+    render();
+    announceStatus('Deselected');
+    return;
+  }
+}
+
 export function initInteraction() {
-  // handlers already bound above
+  // Keyboard navigation on canvas
+  canvas.addEventListener('keydown', onCanvasKeydown);
+  // Also listen on document for global shortcuts
+  document.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (e.key === '?' && document.activeElement !== document.getElementById('search-input') && !keyboardDialogOpen) {
+      showKeyboardShortcutsDialog();
+    }
+  });
 }

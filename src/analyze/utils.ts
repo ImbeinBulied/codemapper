@@ -65,14 +65,8 @@ export function findLine(lines: string[], name: string): number {
 
 export async function walkFiles(dir: string, config?: Config): Promise<string[]> {
   const results: string[] = [];
-  const excludePatterns =
-    config?.exclude
-      ?.map((p) => validateRegex(p))
-      .filter((r): r is RegExp => r !== null) || [];
-  const includePatterns =
-    config?.include
-      ?.map((p) => validateRegex(p))
-      .filter((r): r is RegExp => r !== null) || [];
+  const excludePatterns = config?.exclude?.map((p) => validateRegex(p)).filter((r): r is RegExp => r !== null) || [];
+  const includePatterns = config?.include?.map((p) => validateRegex(p)).filter((r): r is RegExp => r !== null) || [];
   const hasInclude = includePatterns.length > 0;
   let batch = 0;
 

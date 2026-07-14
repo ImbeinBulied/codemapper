@@ -29,6 +29,13 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
+    <noscript>
+      <div style="padding: 2rem; text-align: center; font-family: system-ui, sans-serif">
+        <h1>codemapper requires JavaScript</h1>
+        <p>Please enable JavaScript in your browser to view the interactive codebase dependency graph.</p>
+      </div>
+    </noscript>
+    <div id="aria-status" aria-live="polite" aria-atomic="true" class="sr-only"></div>
     <div id="error-overlay" style="display: none">
       <h2>codemapper</h2>
       <p id="error-msg"></p>
@@ -52,11 +59,51 @@
       <span id="stats"></span>
       <span class="sep"></span>
       <div style="display: flex; align-items: center; gap: 4px">
-        <button class="filter-btn" data-kind="file" onclick="window.toggleFilter('file')">F</button>
-        <button class="filter-btn" data-kind="function" onclick="window.toggleFilter('function')">fn</button>
-        <button class="filter-btn" data-kind="class" onclick="window.toggleFilter('class')">C</button>
-        <button class="filter-btn" data-kind="interface" onclick="window.toggleFilter('interface')">I</button>
-        <button class="filter-btn" data-kind="type" onclick="window.toggleFilter('type')">T</button>
+        <button
+          class="filter-btn"
+          data-kind="file"
+          onclick="window.toggleFilter('file')"
+          aria-label="Filter files"
+          aria-pressed="true"
+        >
+          F
+        </button>
+        <button
+          class="filter-btn"
+          data-kind="function"
+          onclick="window.toggleFilter('function')"
+          aria-label="Filter functions"
+          aria-pressed="true"
+        >
+          fn
+        </button>
+        <button
+          class="filter-btn"
+          data-kind="class"
+          onclick="window.toggleFilter('class')"
+          aria-label="Filter classes"
+          aria-pressed="true"
+        >
+          C
+        </button>
+        <button
+          class="filter-btn"
+          data-kind="interface"
+          onclick="window.toggleFilter('interface')"
+          aria-label="Filter interfaces"
+          aria-pressed="true"
+        >
+          I
+        </button>
+        <button
+          class="filter-btn"
+          data-kind="type"
+          onclick="window.toggleFilter('type')"
+          aria-label="Filter types"
+          aria-pressed="true"
+        >
+          T
+        </button>
       </div>
       <span class="sep"></span>
       <button
@@ -64,23 +111,47 @@
         id="cycle-btn"
         onclick="window.toggleCycles()"
         style="border-color: #f85149; color: #f85149"
+        aria-label="Toggle cycle detection"
+        aria-pressed="false"
       >
         ⟳ Cycles
       </button>
       <span class="sep"></span>
-      <button class="filter-btn" id="layout-btn" onclick="window.cycleLayout()" title="Switch layout">⊞ Force</button>
+      <button
+        class="filter-btn"
+        id="layout-btn"
+        onclick="window.cycleLayout()"
+        title="Switch layout"
+        aria-label="Switch layout mode"
+      >
+        ⊞ Force
+      </button>
       <span class="sep"></span>
-      <button id="theme-btn" onclick="window.toggleTheme()" title="Toggle theme">🌙</button>
+      <button id="theme-btn" onclick="window.toggleTheme()" title="Toggle theme" aria-label="Toggle dark/light theme">
+        🌙
+      </button>
+      <span class="sep"></span>
+      <button
+        id="cb-btn"
+        onclick="window.toggleColorblind()"
+        title="Colorblind mode"
+        aria-label="Toggle colorblind-safe palette"
+        aria-pressed="false"
+      >
+        ◐
+      </button>
       <span class="sep"></span>
       <div class="export-btn" onclick="window.toggleExport(event)">
-        Export &#9662;
+        <span aria-label="Export options">Export &#9662;</span>
         <div id="export-dropdown">
-          <button onclick="window.exportPNG()">Export PNG</button>
-          <button onclick="window.exportJSON()">Export JSON</button>
+          <button onclick="window.exportPNG()" aria-label="Export graph as PNG image">Export PNG</button>
+          <button onclick="window.exportJSON()" aria-label="Export graph data as JSON">Export JSON</button>
         </div>
       </div>
     </div>
-    <div id="canvas-container"><canvas id="canvas"></canvas></div>
+    <div id="canvas-container" role="application" aria-label="Codebase dependency graph">
+      <canvas id="canvas" tabindex="0" aria-label="Dependency graph canvas"></canvas>
+    </div>
     <div id="context-menu"></div>
     <div id="tooltip"></div>
     <div id="legend"></div>
@@ -89,12 +160,13 @@
       <div class="mm-viewport" id="mm-viewport"></div>
     </div>
     <div id="zoom-badge">
-      <button onclick="window.resetZoom()" title="Reset zoom">1:1</button>
+      <button onclick="window.resetZoom()" title="Reset zoom" aria-label="Reset zoom to 1:1">1:1</button>
       <span id="zoom-level">100%</span>
     </div>
     <div id="help-hint">
-      <kbd>/</kbd> search &nbsp; <kbd>Drag</kbd> pan &nbsp; <kbd>Scroll</kbd> zoom &nbsp; <kbd>Click</kbd> inspect
-      &nbsp; <kbd>Esc</kbd> close &nbsp; <kbd>Right-click</kbd> menu
+      <kbd>/</kbd> search &nbsp; <kbd>Tab</kbd> cycle nodes &nbsp; <kbd>Enter</kbd> select &nbsp; <kbd>Drag</kbd> pan
+      &nbsp; <kbd>Scroll</kbd> zoom &nbsp; <kbd>Click</kbd> inspect &nbsp; <kbd>Esc</kbd> close &nbsp;
+      <kbd>?</kbd> shortcuts &nbsp; <kbd>Right-click</kbd> menu
     </div>
     <div id="sidebar">
       <div id="sidebar-header"></div>

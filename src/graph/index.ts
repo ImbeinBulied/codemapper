@@ -38,6 +38,8 @@ export interface AnalysisResult {
   };
   cycles?: CycleInfo[];
   analytics?: import('./analytics.js').AnalyticsResult;
+  /** Git metadata per file (lastModified, author, churn) */
+  git?: Record<string, { lastModified?: string; author?: string; churn?: number }>;
 }
 
 export interface CycleInfo {

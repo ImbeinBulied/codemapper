@@ -13,7 +13,8 @@ import { loadConfig } from '../config.js';
 import { parseWithTreesitter, initTreesitter, tsParserAvailable } from './treesitter.js';
 import { detectCycles } from '../graph/cycles.js';
 import { analyzeGraph } from '../graph/analytics.js';
-import { validateRegex } from './utils.js';
+import { validateRegex, readFileSafe } from './utils.js';
+import { getFileChurn } from '../git.js';
 
 const LANG_DETECTORS: [string, string[]][] = [
   ['typescript', ['.ts', '.tsx', '.js', '.jsx', '.mjs']],
@@ -214,7 +215,39 @@ export async function analyzeCodebase(dir: string, filter?: string, deep?: boole
   };
 
   const cycles = detectCycles(graph.nodes, graph.edges);
-  const analytics = analyzeGraph(graph.nodes, graph.edges);
 
-  return { graph, root: resolvedDir, stats, cycles, analytics };
+  // Build sources map for code metrics (read file contents for file nodes)
+  const sources = new Map<string, string>();
+  for (const n of graph.nodes) {
+    if (n.kind !== 'file') continue;
+    const filePath = path.join(resolvedDir, n.id.replace(/^file:/, ''));
+    const { content } = readFileSafe(filePath);
+    if (content) sources.set(n.id.replace(/^file:/, ''), content);
+  }
+
+  const analytics = analyzeGraph(graph.nodes, graph.edges, sources);
+
+  // Git metadata per file
+  const git: Record<string, { lastModified?: string; author?: string; churn?: number }> = {};
+  for (const n of graph.nodes) {
+    if (n.kind !== 'file') continue;
+    const filePath = path.join(resolvedDir, n.id.replace(/^file:/, ''));
+    try {
+      const churn = getFileChurn(filePath, resolvedDir);
+      if (churn > 0) {
+        git[n.id] = { churn };
+      }
+    } catch {
+      // Not in a git repo — skip
+    }
+  }
+
+  return {
+    graph,
+    root: resolvedDir,
+    stats,
+    cycles,
+    analytics,
+    ...(Object.keys(git).length > 0 ? { git } : {}),
+  };
 }

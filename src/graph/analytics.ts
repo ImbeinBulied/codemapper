@@ -9,6 +9,7 @@
  */
 
 import { GraphNode, GraphEdge } from './index.js';
+import { computeMetrics, CodeMetrics } from './metrics.js';
 
 export interface NodeMetrics {
   /** How many nodes import from this node (incoming edges) */
@@ -19,6 +20,12 @@ export interface NodeMetrics {
   instability: number;
   /** Absolute coupling score */
   coupling: number;
+  /** Lines of code (non-blank, non-comment) */
+  loc: number;
+  /** Cyclomatic complexity (decision points + 1) */
+  complexity: number;
+  /** Maintainability index (0-171, higher = more maintainable) */
+  maintainability: number;
 }
 
 export interface AnalyticsResult {
@@ -31,14 +38,35 @@ export interface AnalyticsResult {
   avgCoupling: number;
 }
 
-export function analyzeGraph(nodes: GraphNode[], edges: GraphEdge[]): AnalyticsResult {
+export function analyzeGraph(nodes: GraphNode[], edges: GraphEdge[], sources?: Map<string, string>): AnalyticsResult {
   const metrics = new Map<string, NodeMetrics>();
   const fileNodes = nodes.filter((n) => n.kind === 'file');
   const fileIds = new Set(fileNodes.map((n) => n.id));
 
-  // Initialize metrics for file nodes
+  // Initialize metrics for file nodes (with default code metrics)
   for (const n of fileNodes) {
-    metrics.set(n.id, { fanIn: 0, fanOut: 0, instability: 0, coupling: 0 });
+    const m: NodeMetrics = {
+      fanIn: 0,
+      fanOut: 0,
+      instability: 0,
+      coupling: 0,
+      loc: 0,
+      complexity: 0,
+      maintainability: 0,
+    };
+    // Compute code metrics from source if available
+    if (sources) {
+      // File node IDs are like "file:/src/foo.ts", extract the path
+      const filePath = n.id.replace(/^file:/, '');
+      const source = sources.get(filePath);
+      if (source) {
+        const codeMetrics = computeMetrics(source);
+        m.loc = codeMetrics.loc;
+        m.complexity = codeMetrics.complexity;
+        m.maintainability = codeMetrics.maintainability;
+      }
+    }
+    metrics.set(n.id, m);
   }
 
   // Count import edges — source is always a file, target can be anything

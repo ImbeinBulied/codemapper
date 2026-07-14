@@ -60,6 +60,8 @@ let initialized = false;
 let available = false;
 let ParserCtor: any = null;
 let LanguageCtor: any = null;
+// Shared parser instance — reused across all files (setLanguage per file)
+let sharedParser: any = null;
 
 // ── Initialization ───────────────────────────────────────────────────
 
@@ -72,6 +74,7 @@ async function init(wasmDir?: string): Promise<boolean> {
     ParserCtor = mod.Parser;
     LanguageCtor = mod.Language;
     await ParserCtor.init();
+    sharedParser = new ParserCtor();
 
     const dir = wasmDir || process.env.WASM_DIR || defaultWasmDir();
     const fs = await import('node:fs');
@@ -110,21 +113,14 @@ async function loadWasm(lang: LanguageId, wasmDir?: string): Promise<any> {
 
 // ── File parser ──────────────────────────────────────────────────────
 
-async function parseFile(
-  filePath: string,
-  lang: LanguageId,
-  relPath: string,
-  wasmDir?: string,
-): Promise<ParseResult | null> {
-  const Lang = await loadWasm(lang, wasmDir);
-  if (!Lang) return null;
+async function parseFile(filePath: string, lang: LanguageId, relPath: string, Lang: any): Promise<ParseResult | null> {
+  if (!Lang || !sharedParser) return null;
 
   const { content } = readFileSafe(filePath);
   if (!content) return null;
 
-  const parser = new ParserCtor();
-  parser.setLanguage(Lang);
-  const tree = parser.parse(content);
+  sharedParser.setLanguage(Lang);
+  const tree = sharedParser.parse(content);
   const root = tree.rootNode;
 
   const nodes: GraphNode[] = [];
@@ -306,21 +302,36 @@ export async function parseWithTreesitter(
   const allNodes: GraphNode[] = [];
   const allEdges: GraphEdge[] = [];
   const seenEdges = new Set<string>();
+  const BATCH_SIZE = 16;
 
   for (const [langId, langDef] of Object.entries(LANGUAGES)) {
     const files = allFiles.filter((f) => langDef.extensions.some((ext) => f.endsWith(ext)));
+    if (files.length === 0) continue;
 
-    for (const filePath of files) {
-      const relPath = filePath.startsWith(rootDir) ? filePath.slice(rootDir.length).replace(/\\/g, '/') : filePath;
+    // Pre-load language WASM once per language
+    const Lang = await loadWasm(langId as LanguageId, wasmDir);
+    if (!Lang) continue;
 
-      const result = await parseFile(filePath, langId as LanguageId, relPath, wasmDir);
-      if (result) {
-        for (const n of result.nodes) allNodes.push(n);
-        for (const e of result.edges) {
-          const key = `${e.source}|${e.kind}|${e.target}`;
-          if (!seenEdges.has(key)) {
-            seenEdges.add(key);
-            allEdges.push(e);
+    // Process files in batches of BATCH_SIZE for parallel parsing
+    for (let i = 0; i < files.length; i += BATCH_SIZE) {
+      const batch = files.slice(i, i + BATCH_SIZE);
+      const results = await Promise.all(
+        batch.map((filePath) => {
+          const relPath = filePath.startsWith(rootDir)
+            ? filePath.slice(rootDir.length).replace(/\\\\/g, '/')
+            : filePath;
+          return parseFile(filePath, langId as LanguageId, relPath, Lang);
+        }),
+      );
+      for (const result of results) {
+        if (result) {
+          for (const n of result.nodes) allNodes.push(n);
+          for (const e of result.edges) {
+            const key = `${e.source}|${e.kind}|${e.target}`;
+            if (!seenEdges.has(key)) {
+              seenEdges.add(key);
+              allEdges.push(e);
+            }
           }
         }
       }
