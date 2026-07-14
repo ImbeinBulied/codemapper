@@ -266,7 +266,9 @@ function renderCanvas2D() {
 }
 let gl: WebGLRenderingContext | null = null,
   glProgram: WebGLProgram | null = null,
-  glCanvas: HTMLCanvasElement | null = null;
+  glCanvas: HTMLCanvasElement | null = null,
+  glEdgeBuffer: WebGLBuffer | null = null,
+  glNodeBuffer: WebGLBuffer | null = null;
 
 export function initWebGL() {
   if (gl) return true;
@@ -330,8 +332,8 @@ function renderWebGL() {
     edgeData.push(src.x, src.y, tgt.x, tgt.y);
   }
   if (edgeData.length) {
-    const buf = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    if (!glEdgeBuffer) glEdgeBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, glEdgeBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(edgeData), gl.STREAM_DRAW);
     gl.enableVertexAttribArray(aPos);
     gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
@@ -344,8 +346,8 @@ function renderWebGL() {
     nodeData.push(n.x, n.y);
   }
   if (nodeData.length) {
-    const buf2 = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf2);
+    if (!glNodeBuffer) glNodeBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, glNodeBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(nodeData), gl.STREAM_DRAW);
     gl.enableVertexAttribArray(aPos);
     gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);

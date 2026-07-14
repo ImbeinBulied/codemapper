@@ -40,6 +40,14 @@ const canvas = document.getElementById('canvas') as HTMLCanvasElement;
 const tooltip = document.getElementById('tooltip')!;
 const contextMenu = document.getElementById('context-menu')!;
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function escapeAttr(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+}
+
 function screenToCanvas(sx: number, sy: number) {
   return { x: (sx - transform.x) / transform.k, y: (sy - transform.y) / transform.k };
 }
@@ -142,9 +150,9 @@ container.addEventListener('mousemove', (e: MouseEvent) => {
       tooltip.style.display = 'block';
       tooltip.innerHTML =
         '<div class="tt-label">' +
-        (edgeHit.label || edgeHit.kind) +
+        escapeHtml(edgeHit.label || edgeHit.kind) +
         '</div><div class="tt-path">' +
-        edgeHit.kind +
+        escapeHtml(edgeHit.kind) +
         '</div>';
       tooltip.style.left = e.clientX + 12 + 'px';
       tooltip.style.top = e.clientY + 12 + 'px';
@@ -161,18 +169,18 @@ container.addEventListener('mousemove', (e: MouseEvent) => {
       const edgesInfo = edgeLabelsArr.length
         ? edgeLabelsArr
             .slice(0, 5)
-            .map((l) => '<div style="color:#8b949e;font-size:10px">→ ' + l + '</div>')
+            .map((l) => '<div style="color:#8b949e;font-size:10px">→ ' + escapeHtml(l) + '</div>')
             .join('')
         : '';
       tooltip.innerHTML =
         '<div class="tt-label">' +
-        hit.label +
+        escapeHtml(hit.label) +
         '</div><div class="tt-path">' +
-        hit.filePath +
+        escapeHtml(hit.filePath) +
         ':' +
         hit.line +
         '</div>' +
-        (hit.description ? '<div class="tt-desc">' + hit.description + '</div>' : '') +
+        (hit.description ? '<div class="tt-desc">' + escapeHtml(hit.description) + '</div>' : '') +
         edgesInfo;
       tooltip.style.left = e.clientX + 12 + 'px';
       tooltip.style.top = e.clientY + 12 + 'px';
@@ -239,23 +247,24 @@ container.addEventListener('contextmenu', (e: MouseEvent) => {
     return;
   }
   setContextMenuNode(hit);
+  const nodeIdx = nodes.indexOf(hit);
   contextMenu.innerHTML =
-    '<button class="cm-item" onclick="window.copyPath(\'' +
-    hit.filePath.replace(/'/g, "\\'") +
-    '\')">Copy path</button>' +
+    '<button class="cm-item" data-action="copy-path" data-path="' +
+    escapeAttr(hit.filePath) +
+    '">Copy path</button>' +
     '<div class="cm-sep"></div>' +
-    '<button class="cm-item" onclick="window.setFocusNode(' +
-    nodes.indexOf(hit) +
-    ')">Show dependents</button>' +
-    '<button class="cm-item" onclick="window.focusKind(\'' +
-    hit.kind +
-    '\')">Show only ' +
-    hit.kind +
+    '<button class="cm-item" data-action="show-deps" data-idx="' +
+    nodeIdx +
+    '">Show dependents</button>' +
+    '<button class="cm-item" data-action="focus-kind" data-kind="' +
+    escapeAttr(hit.kind) +
+    '">Show only ' +
+    escapeHtml(hit.kind) +
     '</button>' +
-    '<button class="cm-item" onclick="window.hideKind(\'' +
-    hit.kind +
-    '\')">Hide ' +
-    hit.kind +
+    '<button class="cm-item" data-action="hide-kind" data-kind="' +
+    escapeAttr(hit.kind) +
+    '">Hide ' +
+    escapeHtml(hit.kind) +
     '</button>';
   contextMenu.style.left = e.clientX + 'px';
   contextMenu.style.top = e.clientY + 'px';
@@ -264,6 +273,24 @@ container.addEventListener('contextmenu', (e: MouseEvent) => {
 
 document.addEventListener('click', (e: MouseEvent) => {
   if (!contextMenu.contains(e.target as Node)) contextMenu.classList.remove('show');
+
+  // Context menu action delegation
+  const btn = (e.target as HTMLElement).closest('.cm-item') as HTMLElement | null;
+  if (btn && contextMenu.contains(btn)) {
+    const action = btn.dataset.action;
+    if (action === 'copy-path') {
+      navigator.clipboard.writeText(btn.dataset.path || '').catch(() => {});
+    } else if (action === 'show-deps') {
+      setFocusNode(nodes[parseInt(btn.dataset.idx || '0')] || null);
+    } else if (action === 'focus-kind') {
+      focusKind(btn.dataset.kind || '');
+    } else if (action === 'hide-kind') {
+      hideKind(btn.dataset.kind || '');
+    }
+    contextMenu.classList.remove('show');
+    return;
+  }
+
   const dd = document.getElementById('export-dropdown');
   if (dd && !(e.target as HTMLElement).closest('.export-btn')) dd.classList.remove('show');
 });
@@ -357,17 +384,7 @@ container.addEventListener(
   { passive: true },
 );
 
-// Exposed for HTML onclick
-(window as any).copyPath = (fp: string) => {
-  navigator.clipboard.writeText(fp).catch(() => {});
-  contextMenu.classList.remove('show');
-};
-(window as any).setFocusNode = (idx: number) => {
-  setFocusNode(nodes[idx] || null);
-  contextMenu.classList.remove('show');
-  render();
-};
-(window as any).focusKind = (kind: string) => {
+function focusKind(kind: string) {
   for (const k of ['file', 'function', 'class', 'interface', 'type', 'module', 'call']) {
     const was = hiddenKinds[k];
     hiddenKinds[k] = k !== kind;
@@ -377,7 +394,7 @@ container.addEventListener(
   contextMenu.classList.remove('show');
   render();
 };
-(window as any).hideKind = (kind: string) => {
+function hideKind(kind: string) {
   hiddenKinds[kind] = !hiddenKinds[kind];
   scheduleFade(kind);
   updateFilterButtons();

@@ -6,7 +6,6 @@ import http from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { fileURLToPath } from 'node:url';
 import { analyzeCodebase } from './analyze/index.js';
-import { loadConfig } from './config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -63,9 +62,10 @@ export async function startServer(
     }
   }
 
-  app.use(express.json());
+  app.use(express.json({ limit: '1mb' }));
 
   let cache: CacheEntry | null = null;
+  let analyzeLock: Promise<any> | null = null;
   let wsClients: Set<WebSocket> = new Set();
 
   const broadcast = (msg: object) => {
@@ -80,9 +80,18 @@ export async function startServer(
     if (cache && cache.hash === currentHash) {
       return cache.result;
     }
-    const result = await analyzeCodebase(resolvedDir, options.filter, options.deep);
-    cache = { hash: currentHash, result };
-    return result;
+    // Coalesce concurrent requests — only one analysis runs at a time
+    if (!analyzeLock) {
+      analyzeLock = analyzeCodebase(resolvedDir, options.filter, options.deep)
+        .then((result) => {
+          cache = { hash: currentHash, result };
+          return result;
+        })
+        .finally(() => {
+          analyzeLock = null;
+        });
+    }
+    return analyzeLock;
   };
 
   app.get('/api/analyze', async (_req, res) => {

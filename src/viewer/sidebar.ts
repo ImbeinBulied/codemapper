@@ -18,10 +18,10 @@ export function selectNode(node: ViewNode) {
 
   sidebarHeader.innerHTML =
     '<span class="label">' +
-    node.kind +
+    escapeHtml(node.kind) +
     '</span>' +
     '<span class="name">' +
-    node.label +
+    escapeHtml(node.label) +
     '</span>' +
     '<button class="close" onclick="closeSidebar()">✕</button>';
 

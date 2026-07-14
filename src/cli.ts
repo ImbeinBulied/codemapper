@@ -33,7 +33,6 @@ program
         const port = parseInt(opts.port, 10);
         const { url } = await startServer(dir, port, { filter: opts.filter, watch: opts.watch, deep: opts.deep });
         console.log(chalk.green(`  Viewer running at ${chalk.bold(url)}`));
-        console.log(chalk.green(`  Viewer running at ${chalk.bold(url)}`));
         if (opts.open !== false) {
           await open(url);
         }

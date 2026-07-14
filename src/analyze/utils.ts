@@ -38,8 +38,16 @@ export function findLine(lines: string[], name: string): number {
 
 export async function walkFiles(dir: string, config?: Config): Promise<string[]> {
   const results: string[] = [];
-  const excludePatterns = config?.exclude?.map((p) => new RegExp(p)) || [];
-  const includePatterns = config?.include?.map((p) => new RegExp(p)) || [];
+  const excludePatterns = config?.exclude
+    ?.map((p) => {
+      try { return new RegExp(p); } catch { return null; }
+    })
+    .filter((r): r is RegExp => r !== null) || [];
+  const includePatterns = config?.include
+    ?.map((p) => {
+      try { return new RegExp(p); } catch { return null; }
+    })
+    .filter((r): r is RegExp => r !== null) || [];
   const hasInclude = includePatterns.length > 0;
   let batch = 0;
 
