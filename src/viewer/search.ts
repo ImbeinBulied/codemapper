@@ -10,6 +10,7 @@ import {
 } from './state.js';
 import { render } from './renderer.js';
 import { selectNode } from './sidebar.js';
+import { LODLevel, currentLOD } from './state.js';
 
 const searchInput = document.getElementById('search-input') as HTMLInputElement;
 const searchCount = document.getElementById('search-count')!;
@@ -37,6 +38,7 @@ function doSearch(term: string) {
     render();
     return;
   }
+  // Search across ALL nodes regardless of LOD level (search finds nodes even if not rendered)
   const visible = nodes.filter((n) => !hiddenKinds[n.kind]);
   const matches = visible.filter(
     (n) => n.label.toLowerCase().includes(searchTerm) || n.filePath.toLowerCase().includes(searchTerm),

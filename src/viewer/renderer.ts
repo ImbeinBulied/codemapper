@@ -23,9 +23,145 @@ import {
   transitioningNodes,
   ViewNode,
   ViewEdge,
+  LODLevel,
+  currentLOD,
+  setLOD,
+  hotspotMode,
+  hotspotData,
 } from './state.js';
+import { getNodeColor, getHotspotRange } from './hotspot.js';
 import { updateMinimap } from './minimap.js';
 import { saveStateToUrl } from './url-state.js';
+
+// ── LOD (Level of Detail) ──────────────────────────────────────────
+
+function getLODLevel(zoom: number): LODLevel {
+  if (zoom < 0.2) return LODLevel.CLUSTER;
+  if (zoom < 0.5) return LODLevel.MODULE;
+  return LODLevel.DETAILED;
+}
+
+function updateLODIndicator(renderedCount: number, blobCount: number) {
+  const el = document.getElementById('zoom-level');
+  if (!el) return;
+  const names = ['Cluster', 'Module', 'Detailed'];
+  const current = getLODLevel(transform.k);
+  const info =
+    current === LODLevel.CLUSTER
+      ? ` ${renderedCount} nodes → ${blobCount} blobs`
+      : current === LODLevel.MODULE
+        ? ` ${renderedCount} files`
+        : ` ${renderedCount} nodes`;
+  el.textContent = `${Math.round(transform.k * 100)}% | LOD: ${names[current]}${info}`;
+}
+
+interface ClusterBlob {
+  dir: string;
+  label: string;
+  cx: number;
+  cy: number;
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+  fileCount: number;
+  avgComplexity: number;
+}
+
+function computeClusterBlobs(): ClusterBlob[] {
+  const dirMap = new Map<string, ViewNode[]>();
+  for (const n of nodes) {
+    if (n.kind !== 'file' || n.x == null || n.y == null) continue;
+    if (hiddenKinds[n.kind]) continue;
+    const dir = n.filePath.split('/').slice(0, -1).join('/') || '/';
+    if (!dirMap.has(dir)) dirMap.set(dir, []);
+    dirMap.get(dir)!.push(n);
+  }
+  const blobs: ClusterBlob[] = [];
+  for (const [dir, group] of dirMap) {
+    if (group.length === 0) continue;
+    let minX = Infinity,
+      maxX = -Infinity,
+      minY = Infinity,
+      maxY = -Infinity;
+    let totalComplexity = 0;
+    for (const n of group) {
+      if (n.x! < minX) minX = n.x!;
+      if (n.x! > maxX) maxX = n.x!;
+      if (n.y! < minY) minY = n.y!;
+      if (n.y! > maxY) maxY = n.y!;
+      // Approximate complexity from description or kind
+      const complexity = n.description ? Math.min(n.description.length / 10, 5) : 1;
+      totalComplexity += complexity;
+    }
+    blobs.push({
+      dir,
+      label: dir.split('/').filter(Boolean).pop() || dir,
+      cx: (minX + maxX) / 2,
+      cy: (minY + maxY) / 2,
+      minX,
+      maxX,
+      minY,
+      maxY,
+      fileCount: group.length,
+      avgComplexity: totalComplexity / group.length,
+    });
+  }
+  return blobs;
+}
+
+function renderClusterBlobs(
+  ctx: CanvasRenderingContext2D,
+  blobs: ClusterBlob[],
+  visMinX: number,
+  visMinY: number,
+  visMaxX: number,
+  visMaxY: number,
+) {
+  for (const blob of blobs) {
+    // Viewport culling
+    if (blob.minX > visMaxX || blob.maxX < visMinX || blob.minY > visMaxY || blob.maxY < visMinY) continue;
+    const r = Math.sqrt(blob.fileCount) * 8;
+    // Color by average complexity (green → yellow → red)
+    const complexity = Math.min(blob.avgComplexity / 5, 1);
+    const rr = Math.round(0x30 + complexity * 0xc8);
+    const gg = Math.round(0x60 - complexity * 0x30);
+    const bb = Math.round(0x3d - complexity * 0x20);
+    const color = `rgb(${rr},${gg},${bb})`;
+    const isHovered = hoveredNode && blob.dir.includes(hoveredNode.filePath.split('/').slice(0, -1).join('/'));
+    ctx.save();
+    ctx.translate(blob.cx, blob.cy);
+    // Glow for hovered cluster
+    if (isHovered) {
+      ctx.shadowColor = '#58a6ff';
+      ctx.shadowBlur = 16;
+    }
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fillStyle = color + '44';
+    ctx.fill();
+    ctx.strokeStyle = isHovered ? '#58a6ff' : color;
+    ctx.lineWidth = isHovered ? 2.5 / transform.k : 1.5 / transform.k;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    // Label
+    if (transform.k > 0.1) {
+      ctx.fillStyle = '#e6edf3';
+      ctx.font = Math.max(9, Math.round(11 * transform.k)) + 'px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const labelText = blob.fileCount > 1 ? `${blob.label} (${blob.fileCount})` : blob.label;
+      ctx.fillText(labelText, 0, 0);
+    }
+    ctx.restore();
+  }
+}
+
+// Store computed blobs for hit testing
+let lastClusterBlobs: ClusterBlob[] = [];
+export function getClusterBlobs(): ClusterBlob[] {
+  return lastClusterBlobs;
+}
 
 export function render() {
   if (glRunning && nodes.length > 500) {
@@ -66,6 +202,10 @@ function renderCanvas2D() {
   const visMaxX = visMinX + w / transform.k + PAD * 2;
   const visMaxY = visMinY + h / transform.k + PAD * 2;
 
+  // Compute LOD level based on zoom
+  const lod = getLODLevel(transform.k);
+  setLOD(lod);
+
   const gridSize = 40;
   ctx.strokeStyle = '#161b22';
   ctx.lineWidth = 1 / transform.k;
@@ -86,6 +226,37 @@ function renderCanvas2D() {
 
   const hasHover = !!hoveredNode;
   const hasFocus = !!focusNode;
+
+  // ── LOD: CLUSTER level — render directory blobs instead of nodes ──
+  if (lod === LODLevel.CLUSTER) {
+    const blobs = computeClusterBlobs();
+    lastClusterBlobs = blobs;
+    // Render edges (very faint at cluster level)
+    ctx.globalAlpha = 0.05;
+    for (const e of edges) {
+      const src = e.source as any,
+        tgt = e.target as any;
+      if (!src.x || !tgt.x) continue;
+      if (
+        (src.x < visMinX && tgt.x < visMinX) ||
+        (src.x > visMaxX && tgt.x > visMaxX) ||
+        (src.y < visMinY && tgt.y < visMinY) ||
+        (src.y > visMaxY && tgt.y > visMaxY)
+      )
+        continue;
+      ctx.strokeStyle = COLORS['edge_' + e.kind] || '#8b949e';
+      ctx.lineWidth = 0.8 / transform.k;
+      ctx.beginPath();
+      ctx.moveTo(src.x, src.y);
+      ctx.lineTo(tgt.x, tgt.y);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    renderClusterBlobs(ctx, blobs, visMinX, visMinY, visMaxX, visMaxY);
+    updateLODIndicator(nodes.length, blobs.length);
+    ctx.restore();
+    return;
+  }
 
   for (const dc of directoryClusters) {
     if (dc.minX > maxX || dc.maxX < minX || dc.minY > maxY || dc.maxY < minY) continue;
@@ -170,6 +341,8 @@ function renderCanvas2D() {
     if (n.x == null) return false;
     // Viewport culling: skip nodes outside visible area
     if (n.x < visMinX || n.x > visMaxX || n.y < visMinY || n.y > visMaxY) return false;
+    // LOD: MODULE level — only render file nodes, skip functions/classes
+    if (lod === LODLevel.MODULE && n.kind !== 'file' && n.kind !== 'directory') return false;
     if (!hiddenKinds[n.kind]) return true;
     return transitioningNodes.has(n.id) && transitioningNodes.get(n.id)! > 0;
   });
@@ -189,7 +362,9 @@ function renderCanvas2D() {
     const isInCycle = showCycles && cycleNodes.has(n.id);
     ctx.save();
     ctx.translate(n.x, n.y);
-    const color = COLORS[n.kind] || '#8b949e';
+    const defaultColor = COLORS[n.kind] || '#8b949e';
+    const color =
+      hotspotMode !== 'default' ? getNodeColor(n as any, hotspotMode, hotspotData, defaultColor) : defaultColor;
     let glowColor = null,
       glowBlur = 0;
     if (isInCycle) {
@@ -284,6 +459,55 @@ function renderCanvas2D() {
     }
   }
 
+  // Update LOD indicator
+  if (lod !== LODLevel.CLUSTER) {
+    updateLODIndicator(drawnNodes.length, 0);
+  }
+
+  // Draw hotspot legend when in hotspot mode
+  if (hotspotMode !== 'default') {
+    const range = getHotspotRange(hotspotMode);
+    const legendX = 20;
+    const legendY = h - 80;
+    const legendW = 200;
+    const legendH = 12;
+
+    // Background
+    ctx.fillStyle = '#161b22ee';
+    ctx.strokeStyle = '#30363d';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(legendX - 8, legendY - 28, legendW + 16, legendH + 44, 6);
+    ctx.fill();
+    ctx.stroke();
+
+    // Title
+    ctx.fillStyle = '#e6edf3';
+    ctx.font = '10px system-ui, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(range.label, legendX, legendY - 4);
+
+    // Gradient bar
+    const gradient = ctx.createLinearGradient(legendX, 0, legendX + legendW, 0);
+    gradient.addColorStop(0, 'rgb(0, 200, 50)');
+    gradient.addColorStop(0.5, 'rgb(255, 200, 50)');
+    gradient.addColorStop(1, 'rgb(255, 0, 50)');
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.roundRect(legendX, legendY, legendW, legendH, 3);
+    ctx.fill();
+
+    // Min/Max labels
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '9px system-ui, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText(String(range.min), legendX, legendY + legendH + 2);
+    ctx.textAlign = 'right';
+    ctx.fillText(String(range.max), legendX + legendW, legendY + legendH + 2);
+  }
+
   ctx.restore();
 }
 let gl: WebGLRenderingContext | null = null,
@@ -363,6 +587,66 @@ function renderWebGL() {
   gl.uniform2f(uOrigin, transform.x, transform.y);
   gl.uniform1f(uScale, transform.k);
   gl.uniform2f(uRes, w, h);
+  // Compute LOD level
+  const lod = getLODLevel(transform.k);
+  setLOD(lod);
+
+  // ── CLUSTER level: render blob centers as large points ──
+  if (lod === LODLevel.CLUSTER) {
+    const blobs = computeClusterBlobs();
+    lastClusterBlobs = blobs;
+    // Render edges (very faint)
+    glEdgeCount = 0;
+    for (const e of edges) {
+      const src = e.source,
+        tgt = e.target;
+      if (!src.x || !tgt.x) continue;
+      if (glEdgeCount + 4 > glEdgeData.length) {
+        const grown = new Float32Array(glEdgeData.length * 2);
+        grown.set(glEdgeData);
+        glEdgeData = grown;
+      }
+      glEdgeData[glEdgeCount++] = src.x;
+      glEdgeData[glEdgeCount++] = src.y;
+      glEdgeData[glEdgeCount++] = tgt.x;
+      glEdgeData[glEdgeCount++] = tgt.y;
+    }
+    if (glEdgeCount) {
+      if (!glEdgeBuffer) glEdgeBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, glEdgeBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, glEdgeData.subarray(0, glEdgeCount), gl.STREAM_DRAW);
+      gl.enableVertexAttribArray(aPos);
+      gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+      gl.uniform4f(uColor, 0.3, 0.4, 0.5, 0.05);
+      gl.drawArrays(gl.LINES, 0, glEdgeCount / 2);
+    }
+    // Render cluster blobs as large points
+    glNodeCount = 0;
+    for (const blob of blobs) {
+      if (glNodeCount + 2 > glNodeData.length) {
+        const grown = new Float32Array(glNodeData.length * 2);
+        grown.set(glNodeData);
+        glNodeData = grown;
+      }
+      glNodeData[glNodeCount++] = blob.cx;
+      glNodeData[glNodeCount++] = blob.cy;
+    }
+    if (glNodeCount) {
+      if (!glNodeBuffer) glNodeBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, glNodeBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, glNodeData.subarray(0, glNodeCount), gl.STREAM_DRAW);
+      gl.enableVertexAttribArray(aPos);
+      gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+      // Color blobs by complexity
+      const avgComplexity = blobs.length ? blobs.reduce((s, b) => s + b.avgComplexity, 0) / blobs.length : 0;
+      const c = Math.min(avgComplexity / 5, 1);
+      gl.uniform4f(uColor, 0.19 + c * 0.78, 0.38 - c * 0.19, 0.24 - c * 0.13, 0.6);
+      gl.drawArrays(gl.POINTS, 0, glNodeCount);
+    }
+    updateLODIndicator(nodes.length, blobs.length);
+    updateMinimap();
+    return;
+  }
 
   // ── Edges ──
   glEdgeCount = 0;
@@ -401,6 +685,8 @@ function renderWebGL() {
   glNodeCount = 0;
   for (const n of nodes) {
     if (n.x == null || hiddenKinds[n.kind]) continue;
+    // LOD: MODULE level — only render file nodes
+    if (lod === LODLevel.MODULE && n.kind !== 'file' && n.kind !== 'directory') continue;
     if (glNodeCount + 2 > glNodeData.length) {
       const grown = new Float32Array(glNodeData.length * 2);
       grown.set(glNodeData);
@@ -421,6 +707,10 @@ function renderWebGL() {
     gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
     gl.uniform4f(uColor, 0.34, 0.65, 1.0, 0.8);
     gl.drawArrays(gl.POINTS, 0, glNodeCount);
+  }
+  // Update LOD indicator
+  if (lod !== LODLevel.CLUSTER) {
+    updateLODIndicator(glNodeCount / 2, 0);
   }
   updateMinimap();
 }

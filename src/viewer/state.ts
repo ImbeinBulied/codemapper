@@ -57,6 +57,17 @@ export let edgeLabels = false;
 export let contextMenuNode: ViewNode | null = null;
 export let sim: any = null;
 
+// LOD (Level of Detail) state
+export enum LODLevel {
+  CLUSTER = 0, // zoom < 0.2 — only render directory clusters as blobs
+  MODULE = 1, // zoom 0.2-0.5 — render file nodes, skip functions/classes
+  DETAILED = 2, // zoom > 0.5 — render everything
+}
+export let currentLOD: LODLevel = LODLevel.DETAILED;
+export function setLOD(level: LODLevel) {
+  currentLOD = level;
+}
+
 // Setters for modules to update state
 export function setNodes(n: ViewNode[]) {
   nodes = n;
@@ -136,6 +147,16 @@ export function setDirectoryClusters(d: any[]) {
 export function setContextMenuNode(n: ViewNode | null) {
   contextMenuNode = n;
 }
+export let hotspotMode: import('./hotspot.js').HotspotMode = 'default';
+export let hotspotData: Map<string, import('./hotspot.js').HotspotData> = new Map();
+
 export function setSim(s: any) {
   sim = s;
+}
+export function setHotspotMode(m: import('./hotspot.js').HotspotMode) {
+  hotspotMode = m;
+}
+
+export function setHotspotData(d: Map<string, import('./hotspot.js').HotspotData>) {
+  hotspotData = d;
 }

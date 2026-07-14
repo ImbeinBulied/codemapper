@@ -32,8 +32,10 @@ import {
 } from './state.js';
 import { COLORS, NODE_SIZE } from './colors.js';
 import { render } from './renderer.js';
+import { getClusterBlobs } from './renderer.js';
 import { updateZoomLevel, computeDirectoryClusters } from './minimap.js';
 import { selectNode, closeSidebar } from './sidebar.js';
+import { LODLevel, currentLOD } from './state.js';
 
 declare const d3: any;
 
@@ -80,6 +82,22 @@ function screenToCanvas(sx: number, sy: number) {
 }
 
 function hitTest(cx: number, cy: number): ViewNode | null {
+  // At CLUSTER level, check cluster blobs first
+  if (currentLOD === LODLevel.CLUSTER) {
+    const blobs = getClusterBlobs();
+    for (const blob of blobs) {
+      const r = Math.sqrt(blob.fileCount) * 8;
+      const dx = cx - blob.cx,
+        dy = cy - blob.cy;
+      if (dx * dx + dy * dy <= r * r) {
+        // Find first file node in this blob's directory for selection
+        const dirPrefix = blob.dir;
+        const matchingNode = nodes.find((n) => n.kind === 'file' && n.x != null && n.filePath.startsWith(dirPrefix));
+        if (matchingNode) return matchingNode;
+        return null;
+      }
+    }
+  }
   if (quadtreeDirty || !quadtree) buildQuadtree();
   if (!quadtree) return null;
 
