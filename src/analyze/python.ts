@@ -272,7 +272,7 @@ export async function analyzePython(dir: string, rootDir: string, config?: Confi
           .split(',')
           .map((s) => s.trim())
           .filter(Boolean)) {
-          edges.push({ source: classId, target: `class:${parent}`, kind: 'extends', label: parent });
+          edges.push({ source: classId, target: `class:${relPath}#${parent}`, kind: 'extends', label: parent });
         }
       }
 
@@ -282,7 +282,7 @@ export async function analyzePython(dir: string, rootDir: string, config?: Confi
     // ── Functions ──
     for (const m of content.matchAll(FUNC_RE)) {
       localFuncs.add(m[1]);
-      const lineNum = findLine(lines, `def ${m[1]}`) || findLine(lines, `async def ${m[1]}`);
+      const lineNum = findLine(lines, `async def ${m[1]}`) || findLine(lines, `def ${m[1]}`);
       const funcId = `func:${relPath}#${m[1]}`;
       nodes.push({ id: funcId, label: m[1], kind: 'function', filePath: relPath, line: lineNum, col: 1 });
       edges.push({ source: nodeId, target: funcId, kind: 'contains' });

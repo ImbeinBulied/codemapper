@@ -57,7 +57,9 @@ export function analyzeGraph(nodes: GraphNode[], edges: GraphEdge[]): AnalyticsR
 
     // Fan-in: extract file path from target ID
     // Target IDs are like "func:/src/foo.ts#bar" or "class:/src/foo.ts#Bar"
-    const targetPath = e.target.replace(/^(func|class|interface|type|module|file):/, '').split('#')[0];
+    const targetPath = e.target
+      .replace(/^(func|class|interface|type|module|file|struct|trait|enum|typealias|protocol|ext|var|const):/, '')
+      .split('#')[0];
     if (targetPath) {
       const tgtId = pathToFileId.get(targetPath);
       if (tgtId) {
@@ -68,17 +70,21 @@ export function analyzeGraph(nodes: GraphNode[], edges: GraphEdge[]): AnalyticsR
   }
 
   // Also count call edges as coupling
+  let callCoupling = 0;
   for (const e of edges) {
     if (e.kind !== 'calls') continue;
     const src = metrics.get(e.source);
-    if (src) src.coupling += 1; // extra coupling weight for calls
+    if (src) {
+      src.coupling += 1;
+      callCoupling++;
+    }
   }
 
   // Compute derived metrics
   for (const [id, m] of metrics) {
     const total = m.fanIn + m.fanOut;
     m.instability = total === 0 ? 0 : m.fanOut / total;
-    m.coupling = total;
+    m.coupling = total + m.coupling; // fanIn + fanOut + call-based coupling
   }
 
   // Rank hubs (most fan-in)

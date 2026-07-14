@@ -8,7 +8,7 @@ const FN_RE = /(?:pub\s+)?(?:unsafe\s+)?fn\s+(\w+)/g;
 const STRUCT_RE = /(?:pub\s+)?struct\s+(\w+)/g;
 const ENUM_RE = /(?:pub\s+)?enum\s+(\w+)/g;
 const TRAIT_RE = /(?:pub\s+)?(?:unsafe\s+)?trait\s+(\w+)/g;
-const IMPL_RE = /impl\s+(?:<\w+>\s+)?(\w+)/g;
+const IMPL_RE = /impl\s+(?:<(?:[^>]*?)>\s+)?(\w+)(?:\s+for\s+(\w+))?/g;
 const USE_RE = /^use\s+([^;]+);/gm;
 const TYPE_RE = /(?:pub\s+)?type\s+(\w+)\s*=/g;
 const CALL_RE = /(\w+)\s*\(/g;
@@ -112,7 +112,8 @@ export async function analyzeRust(dir: string, rootDir: string, config?: Config)
     }
 
     for (const match of content.matchAll(IMPL_RE)) {
-      const target = match[1];
+      // match[1] = trait/type, match[2] = implementing type (for `impl Trait for Type`)
+      const target = match[2] || match[1];
       if (!nodes.some((n) => n.id === `impl:${relPath}#${target}`)) {
         nodes.push({
           id: `impl:${relPath}#${target}`,

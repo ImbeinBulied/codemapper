@@ -68,6 +68,7 @@ export async function walkFiles(dir: string, config?: Config): Promise<string[]>
         const fullPath = path.join(dir, entry.name);
         if (entry.name.startsWith('.') || SKIP_DIRS.test(entry.name)) continue;
         if (excludePatterns.some((r) => r.test(fullPath))) continue;
+        if (entry.isSymbolicLink()) continue; // skip symlinks to avoid infinite loops
         if (entry.isDirectory()) {
           await walk(fullPath);
         } else {

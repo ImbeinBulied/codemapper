@@ -44,8 +44,8 @@ export async function analyzePhp(dir: string, rootDir: string, config?: Config):
     const localFuncs = new Set<string>();
 
     for (const m of content.matchAll(USE_RE)) {
-      const name = m[1].split('\\\\').pop() || m[1].split('\\').pop() || m[1];
-      edges.push({ source: nodeId, target: `module:${m[1].replace(/\\\\/g, '::')}`, kind: 'imports', label: name });
+      const name = m[1].split('\\').pop() || m[1];
+      edges.push({ source: nodeId, target: `module:${m[1].replace(/\\/g, '::')}`, kind: 'imports', label: name });
     }
 
     for (const m of content.matchAll(CLASS_RE)) {

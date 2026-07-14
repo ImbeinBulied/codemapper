@@ -629,20 +629,31 @@ export async function analyzeTypeScript(dir: string, rootDir: string, config?: C
       if (resolvedPath && exportMap.has(resolvedPath)) {
         const targetExports = exportMap.get(resolvedPath)!;
 
-        let targetExport =
-          imp.importedName === '*' ? targetExports.values().next().value : targetExports.get(imp.importedName);
+        if (imp.importedName === '*') {
+          // `import * as ns` — create edges to all exports
+          for (const targetExport of targetExports.values()) {
+            dedupEdge({
+              source: `file:${relPath}`,
+              target: targetExport.node.id,
+              kind: 'imports',
+              label: imp.localName,
+            });
+          }
+        } else {
+          let targetExport = targetExports.get(imp.importedName);
 
-        if (!targetExport && imp.namedAlias) {
-          targetExport = targetExports.get(imp.namedAlias);
-        }
+          if (!targetExport && imp.namedAlias) {
+            targetExport = targetExports.get(imp.namedAlias);
+          }
 
-        if (targetExport) {
-          dedupEdge({
-            source: `file:${relPath}`,
-            target: targetExport.node.id,
-            kind: 'imports',
-            label: imp.localName,
-          });
+          if (targetExport) {
+            dedupEdge({
+              source: `file:${relPath}`,
+              target: targetExport.node.id,
+              kind: 'imports',
+              label: imp.localName,
+            });
+          }
         }
       }
     }
