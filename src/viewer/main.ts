@@ -13,7 +13,7 @@ import {
   setTheme,
 } from './state.js';
 import { render, initWebGL } from './renderer.js';
-import { setTheme as setColorsTheme } from './colors.js';
+import { setTheme as setColorsTheme, toggleColorblindMode, isColorblind } from './colors.js';
 import { startForceSimulation } from './simulation.js';
 import { computeDirectoryClusters, updateZoomLevel } from './minimap.js';
 import { initSearch } from './search.js';
@@ -312,6 +312,27 @@ function applyTheme(t: 'dark' | 'light') {
     localStorage.setItem('codemapper-theme', next);
   } catch {}
 };
+
+// Colorblind mode toggle with localStorage persistence
+(window as any).toggleColorblind = () => {
+  toggleColorblindMode();
+  const btn = document.getElementById('cb-btn');
+  if (btn) btn.setAttribute('aria-pressed', String(isColorblind));
+  try {
+    localStorage.setItem('codemapper-colorblind', String(isColorblind));
+  } catch {}
+  render();
+};
+
+// Load saved colorblind preference on init
+try {
+  const savedCb = localStorage.getItem('codemapper-colorblind');
+  if (savedCb === 'true' && !isColorblind) {
+    toggleColorblindMode();
+    const btn = document.getElementById('cb-btn');
+    if (btn) btn.setAttribute('aria-pressed', 'true');
+  }
+} catch {}
 
 // Load saved theme on init
 try {

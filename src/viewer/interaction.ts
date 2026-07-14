@@ -333,6 +333,8 @@ document.addEventListener('click', (e: MouseEvent) => {
 // Touch
 let lastTouchDist = 0;
 let touchPanStart: { x: number; y: number } | null = null;
+let longPressTimer: ReturnType<typeof setTimeout> | null = null;
+let longPressTriggered = false;
 
 container.addEventListener(
   'touchstart',
@@ -345,6 +347,30 @@ container.addEventListener(
         setIsDragging(true);
         setDragNode(hit);
         if (sim && !simSettled) sim.alphaTarget(0.3).restart();
+        // Long-press detection for context menu
+        longPressTriggered = false;
+        if (longPressTimer) clearTimeout(longPressTimer);
+        longPressTimer = setTimeout(() => {
+          longPressTriggered = true;
+          setIsDragging(false);
+          setDragNode(null);
+          // Show context menu at touch position
+          setContextMenuNode(hit);
+          const nodeIdx = nodes.indexOf(hit);
+          contextMenu.innerHTML =
+            '<button class="cm-item" data-action="copy-path" data-path="' +
+            escapeAttr(hit.filePath) +
+            '">Copy path</button>' +
+            '<div class="cm-sep"></div>' +
+            '<button class="cm-item" data-action="show-deps" data-idx="' +
+            nodeIdx +
+            '">Show dependents</button>';
+          contextMenu.style.left = t.clientX + 'px';
+          contextMenu.style.top = t.clientY + 'px';
+          contextMenu.classList.add('show');
+          // Haptic feedback if available
+          if (navigator.vibrate) navigator.vibrate(50);
+        }, 500);
       } else {
         setIsPanning(true);
         touchPanStart = { x: t.clientX - transform.x, y: t.clientY - transform.y };
@@ -352,6 +378,10 @@ container.addEventListener(
     } else if (e.touches.length === 2) {
       setIsPanning(false);
       setIsDragging(false);
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
       const t1 = e.touches[0],
         t2 = e.touches[1];
       lastTouchDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
@@ -365,6 +395,11 @@ container.addEventListener(
   (e: TouchEvent) => {
     if (e.touches.length === 1) {
       const t = e.touches[0];
+      // Cancel long-press if finger moves
+      if (longPressTimer && !longPressTriggered) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
       if (isDragging && dragNode) {
         const p = screenToCanvas(t.clientX, t.clientY);
         dragNode.fx = p.x;
@@ -402,6 +437,10 @@ container.addEventListener(
 container.addEventListener(
   'touchend',
   () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+    }
     if (isDragging && dragNode) {
       if (sim) {
         sim.alphaTarget(0);
