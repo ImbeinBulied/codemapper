@@ -13,6 +13,7 @@ import { loadConfig } from '../config.js';
 import { parseWithTreesitter, initTreesitter, tsParserAvailable } from './treesitter.js';
 import { detectCycles } from '../graph/cycles.js';
 import { analyzeGraph } from '../graph/analytics.js';
+import { validateRegex } from './utils.js';
 
 const LANG_DETECTORS: [string, string[]][] = [
   ['typescript', ['.ts', '.tsx', '.js', '.jsx', '.mjs']],
@@ -196,11 +197,13 @@ export async function analyzeCodebase(dir: string, filter?: string, deep?: boole
   };
 
   if (filter) {
-    const pattern = new RegExp(filter);
-    graph = {
-      nodes: graph.nodes.filter((n) => pattern.test(n.filePath)),
-      edges: graph.edges.filter((e) => pattern.test(e.source) || pattern.test(e.target)),
-    };
+    const pattern = validateRegex(filter);
+    if (pattern) {
+      graph = {
+        nodes: graph.nodes.filter((n) => pattern.test(n.filePath)),
+        edges: graph.edges.filter((e) => pattern.test(e.source) || pattern.test(e.target)),
+      };
+    }
   }
 
   const stats = {

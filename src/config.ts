@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { Config } from './graph/index.js';
+import { validateRegex } from './analyze/utils.js';
 
 // Support both correct spelling and old typo for backwards compatibility
 const CONFIG_FILES = ['.codemapperrc.json', '.codemaperrc.json'];
@@ -32,16 +33,14 @@ export function loadConfig(dir: string): Config {
 export function shouldIncludeFile(filePath: string, config: Config): boolean {
   if (config.exclude) {
     for (const pattern of config.exclude) {
-      try {
-        if (new RegExp(pattern).test(filePath)) return false;
-      } catch {}
+      const re = validateRegex(pattern);
+      if (re && re.test(filePath)) return false;
     }
   }
   if (config.include) {
     for (const pattern of config.include) {
-      try {
-        if (new RegExp(pattern).test(filePath)) return true;
-      } catch {}
+      const re = validateRegex(pattern);
+      if (re && re.test(filePath)) return true;
     }
     return false;
   }

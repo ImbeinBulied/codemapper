@@ -13,6 +13,7 @@ interface ServerOptions {
   filter?: string;
   watch?: boolean;
   deep?: boolean;
+  host?: string;
 }
 
 interface CacheEntry {
@@ -49,6 +50,7 @@ export async function startServer(
 ): Promise<{ server: any; url: string }> {
   const app = express();
   const resolvedDir = path.resolve(workspaceDir);
+  const host = options.host || '127.0.0.1';
 
   const viewerPath = path.join(__dirname, 'viewer', 'index.html');
   const distViewerPath = path.join(__dirname, '..', 'viewer', 'index.html');
@@ -63,6 +65,27 @@ export async function startServer(
   }
 
   app.use(express.json({ limit: '1mb' }));
+
+  // Rate limiting: simple in-memory counter for /api/analyze
+  const rateLimits = new Map<string, { count: number; resetAt: number }>();
+  const RATE_LIMIT_MAX = 30; // requests
+  const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
+
+  function rateLimit(req: express.Request, res: express.Response, next: express.NextFunction) {
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const now = Date.now();
+    let entry = rateLimits.get(ip);
+    if (!entry || now > entry.resetAt) {
+      entry = { count: 0, resetAt: now + RATE_LIMIT_WINDOW_MS };
+      rateLimits.set(ip, entry);
+    }
+    entry.count++;
+    if (entry.count > RATE_LIMIT_MAX) {
+      res.status(429).json({ error: 'rate limit exceeded, try again later' });
+      return;
+    }
+    next();
+  }
 
   let cache: CacheEntry | null = null;
   let analyzeLock: Promise<any> | null = null;
@@ -94,7 +117,7 @@ export async function startServer(
     return analyzeLock;
   };
 
-  app.get('/api/analyze', async (_req, res) => {
+  app.get('/api/analyze', rateLimit, async (_req, res) => {
     try {
       const result = await getCachedResult();
       // Include cycle count in the response
@@ -192,10 +215,10 @@ export async function startServer(
       ws.on('close', () => wsClients.delete(ws));
       ws.on('error', () => wsClients.delete(ws));
     });
-    httpServer.listen(port, () => {
+    httpServer.listen(port, host, () => {
       const addr = httpServer.address();
-      const host = typeof addr === 'string' ? addr : `http://localhost:${addr?.port || port}`;
-      resolve({ server: httpServer, url: host as string });
+      const displayHost = typeof addr === 'string' ? addr : `http://${host}:${addr?.port || port}`;
+      resolve({ server: httpServer, url: displayHost as string });
     });
   });
 }

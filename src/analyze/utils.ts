@@ -6,6 +6,33 @@ export const SKIP_DIRS =
   /node_modules|\.git|dist|build|target|__pycache__|\.venv|venv|vendor|\.mypy_cache|\.pytest_cache|\.gradle|\.idea|coverage|wasm/;
 export const MAX_FILE_SIZE = 1_000_000;
 
+/**
+ * Validate a regex pattern to prevent ReDoS attacks.
+ * Returns a compiled RegExp if safe, null if the pattern is dangerous.
+ *
+ * Heuristics:
+ * - Reject patterns longer than `maxLen` characters
+ * - Detect nested quantifiers like (a+)+, (a|b)*, (?:...)+ etc.
+ */
+export function validateRegex(pattern: string, maxLen = 500): RegExp | null {
+  if (pattern.length > maxLen) return null;
+
+  // Detect nested quantifiers: a quantifier group followed by a quantifier
+  // e.g., (a+)+, (a|b)*, (?:foo+)+, (?:(?:x))+, etc.
+  const nestedQuantifierPattern = /\([^)]*[*+][^)]*\)[*+?]/;
+  // Also check for possessive-like patterns with overlapping quantifiers in alternations
+  const overlappingAltPattern = /\([^)]*\|[^)]*\)[*+?]/;
+
+  if (nestedQuantifierPattern.test(pattern)) return null;
+  if (overlappingAltPattern.test(pattern)) return null;
+
+  try {
+    return new RegExp(pattern);
+  } catch {
+    return null;
+  }
+}
+
 export function isBinary(content: string): boolean {
   for (let i = 0; i < Math.min(content.length, 4096); i++) {
     if (content.charCodeAt(i) === 0) return true;
@@ -40,23 +67,11 @@ export async function walkFiles(dir: string, config?: Config): Promise<string[]>
   const results: string[] = [];
   const excludePatterns =
     config?.exclude
-      ?.map((p) => {
-        try {
-          return new RegExp(p);
-        } catch {
-          return null;
-        }
-      })
+      ?.map((p) => validateRegex(p))
       .filter((r): r is RegExp => r !== null) || [];
   const includePatterns =
     config?.include
-      ?.map((p) => {
-        try {
-          return new RegExp(p);
-        } catch {
-          return null;
-        }
-      })
+      ?.map((p) => validateRegex(p))
       .filter((r): r is RegExp => r !== null) || [];
   const hasInclude = includePatterns.length > 0;
   let batch = 0;

@@ -22,16 +22,21 @@ program
   .description('Open an interactive graph view of a codebase')
   .argument('<directory>', 'Path to the codebase directory')
   .option('-p, --port <number>', 'Port to serve on', '5001')
+  .option('-H, --host <host>', 'Host to bind to', '127.0.0.1')
   .option('-f, --filter <pattern>', 'Filter files by regex pattern')
   .option('-w, --watch', 'Watch for file changes and auto-refresh')
   .option('-d, --deep', 'Use tree-sitter AST parsing (slower, more accurate)')
   .option('--no-open', 'Do not open browser automatically')
   .action(
-    async (dir: string, opts: { port: string; open: boolean; filter?: string; watch?: boolean; deep?: boolean }) => {
+    async (dir: string, opts: { port: string; host: string; open: boolean; filter?: string; watch?: boolean; deep?: boolean }) => {
       try {
         console.log(chalk.cyan(' codemapper ') + chalk.gray(' — analyzing codebase...'));
         const port = parseInt(opts.port, 10);
-        const { url } = await startServer(dir, port, { filter: opts.filter, watch: opts.watch, deep: opts.deep });
+        if (isNaN(port) || port < 1 || port > 65535) {
+          console.error(chalk.red('Error:'), `Invalid port ${opts.port}. Must be between 1 and 65535.`);
+          process.exit(1);
+        }
+        const { url } = await startServer(dir, port, { filter: opts.filter, watch: opts.watch, deep: opts.deep, host: opts.host });
         console.log(chalk.green(`  Viewer running at ${chalk.bold(url)}`));
         if (opts.open !== false) {
           await open(url);
