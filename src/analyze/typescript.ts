@@ -114,7 +114,11 @@ function analyzeFile(filePath: string, relPath: string, rootDir: string): FileRe
   const REQUIRE_SIDE_RE = /require\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g;
   for (const m of text.matchAll(REQUIRE_SIDE_RE)) {
     const mod = m[1];
-    if (!(/(?:const|let|var)\s+(?:\{[^}]*\}|\w+)\s*=\s*require/.test(text.substring(Math.max(0, (m.index || 0) - 40), m.index || 0)))) {
+    if (
+      !/(?:const|let|var)\s+(?:\{[^}]*\}|\w+)\s*=\s*require/.test(
+        text.substring(Math.max(0, (m.index || 0) - 40), m.index || 0),
+      )
+    ) {
       addEdge('imports', fileNode.id, `module:${mod}`, mod.split('/').pop() || mod);
     }
   }

@@ -393,14 +393,14 @@ function focusKind(kind: string) {
   updateFilterButtons();
   contextMenu.classList.remove('show');
   render();
-};
+}
 function hideKind(kind: string) {
   hiddenKinds[kind] = !hiddenKinds[kind];
   scheduleFade(kind);
   updateFilterButtons();
   contextMenu.classList.remove('show');
   render();
-};
+}
 (window as any).toggleFilter = (kind: string) => {
   if (['file', 'function', 'class', 'interface', 'type'].includes(kind)) {
     hiddenKinds[kind] = !hiddenKinds[kind];

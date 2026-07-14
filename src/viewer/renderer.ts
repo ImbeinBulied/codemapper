@@ -123,7 +123,12 @@ function renderCanvas2D() {
       isFocusRelated = false;
     if (hasHover && (e.source === hoveredNode || e.target === hoveredNode)) related = true;
     if (hasFocus && (e.source === focusNode || e.target === focusNode)) isFocusRelated = true;
-    if (showCycles && cycleNodes.size > 0 && cycleNodes.has((e.source as any).id) && cycleNodes.has((e.target as any).id))
+    if (
+      showCycles &&
+      cycleNodes.size > 0 &&
+      cycleNodes.has((e.source as any).id) &&
+      cycleNodes.has((e.target as any).id)
+    )
       cycleEdge = true;
     ctx.strokeStyle = cycleEdge ? COLORS.cycle_edge : COLORS['edge_' + e.kind] || '#8b949e';
     ctx.lineWidth = related || isFocusRelated ? 2.5 / transform.k : 1.2 / transform.k;

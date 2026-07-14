@@ -90,7 +90,7 @@ program
   .argument('[directory]', 'Project directory', '.')
   .action(async (dir: string) => {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-    const ask = (q: string): Promise<string> => new Promise(r => rl.question(q, r));
+    const ask = (q: string): Promise<string> => new Promise((r) => rl.question(q, r));
 
     try {
       console.log(chalk.cyan(' codemapper ') + chalk.gray(' — scaffold config\n'));
@@ -101,8 +101,16 @@ program
 
       const config: Record<string, any> = {};
       if (include) config.include = [include];
-      if (exclude) config.exclude = exclude.split('|').map(s => s.trim()).filter(Boolean);
-      if (langs) config.languages = langs.split(',').map(s => s.trim()).filter(Boolean);
+      if (exclude)
+        config.exclude = exclude
+          .split('|')
+          .map((s) => s.trim())
+          .filter(Boolean);
+      if (langs)
+        config.languages = langs
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
 
       const configPath = path.resolve(dir, '.codemaperrc.json');
       fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
@@ -148,7 +156,9 @@ program
       } else {
         const s = summary;
         console.log(chalk.cyan('\n codemapper diff\n'));
-        console.log(`  Files:      ${s.before.files} → ${s.after.files} (${chalk.green('+' + (s.after.files - s.before.files))})`);
+        console.log(
+          `  Files:      ${s.before.files} → ${s.after.files} (${chalk.green('+' + (s.after.files - s.before.files))})`,
+        );
         console.log(`  Functions:  ${s.before.functions} → ${s.after.functions}`);
         console.log(`  Imports:    ${s.before.imports} → ${s.after.imports}`);
         console.log(`  Added:      ${chalk.green(s.added.nodes + ' nodes, ' + s.added.edges + ' edges')}`);

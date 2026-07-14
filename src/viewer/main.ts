@@ -158,13 +158,13 @@ function debouncedSaveUrl() {
 
 // Hook into existing interaction functions
 const origFilter = (window as any).toggleFilter;
-(window as any).toggleFilter = function(kind: string) {
+(window as any).toggleFilter = function (kind: string) {
   if (origFilter) origFilter(kind);
   debouncedSaveUrl();
 };
 
 const origLayout = (window as any).cycleLayout;
-(window as any).cycleLayout = function() {
+(window as any).cycleLayout = function () {
   if (origLayout) origLayout();
   setTimeout(saveStateToUrl, 600); // after layout applies
 };

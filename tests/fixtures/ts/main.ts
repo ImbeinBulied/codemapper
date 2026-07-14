@@ -13,9 +13,15 @@ interface Pet extends Animal {
 
 class Dog implements Animal {
   name: string;
-  constructor(name: string) { this.name = name; }
-  speak(): string { return greet(this.name); }
-  wagTail(): void { console.log('wagging'); }
+  constructor(name: string) {
+    this.name = name;
+  }
+  speak(): string {
+    return greet(this.name);
+  }
+  wagTail(): void {
+    console.log('wagging');
+  }
 }
 
 // Arrow function assigned to const
@@ -31,7 +37,10 @@ function main(): void {
 type Callback = (value: string) => void;
 
 // Enum
-enum Status { Active, Inactive }
+enum Status {
+  Active,
+  Inactive,
+}
 
 // Async function
 async function fetchData(url: string): Promise<string> {

@@ -1,66 +1,106 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>codemapper</title>
-<script src="/d3.min.js"></script>
-<script>if(typeof d3==='undefined'){var s=document.createElement('script');s.src='https://d3js.org/d3.v7.min.js';s.onerror=function(){console.warn('D3 failed to load from CDN')};document.head.appendChild(s)}</script>
-<script src="/dagre.min.js"></script>
-<script>if(typeof dagre==='undefined'){var s2=document.createElement('script');s2.src='https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js';s2.onerror=function(){console.warn('dagre failed to load from CDN')};document.head.appendChild(s2)}</script>
-<link rel="stylesheet" href="/styles.css">
-</head>
-<body>
-
-<div id="error-overlay" style="display:none"><h2>codemapper</h2><p id="error-msg"></p></div>
-<div id="status-bar"><div class="spinner"></div><span>Analyzing codebase...</span></div>
-<div id="toolbar">
-  <span class="brand">codemapper</span>
-  <span class="sep"></span>
-  <div id="search-container">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#484f58" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-    <input id="search-input" type="text" placeholder="Search..." spellcheck="false" />
-    <span id="search-count"></span>
-  </div>
-  <span class="sep"></span>
-  <span id="stats"></span>
-  <span class="sep"></span>
-  <div style="display:flex;align-items:center;gap:4px">
-    <button class="filter-btn" data-kind="file" onclick="window.toggleFilter('file')">F</button>
-    <button class="filter-btn" data-kind="function" onclick="window.toggleFilter('function')">fn</button>
-    <button class="filter-btn" data-kind="class" onclick="window.toggleFilter('class')">C</button>
-    <button class="filter-btn" data-kind="interface" onclick="window.toggleFilter('interface')">I</button>
-    <button class="filter-btn" data-kind="type" onclick="window.toggleFilter('type')">T</button>
-  </div>
-  <span class="sep"></span>
-  <button class="filter-btn" id="cycle-btn" onclick="window.toggleCycles()" style="border-color:#f85149;color:#f85149">⟳ Cycles</button>
-  <span class="sep"></span>
-  <button class="filter-btn" id="layout-btn" onclick="window.cycleLayout()" title="Switch layout">⊞ Force</button>
-  <span class="sep"></span>
-  <button id="theme-btn" onclick="window.toggleTheme()" title="Toggle theme">🌙</button>
-  <span class="sep"></span>
-  <div class="export-btn" onclick="window.toggleExport(event)">
-    Export &#9662;
-    <div id="export-dropdown">
-      <button onclick="window.exportPNG()">Export PNG</button>
-      <button onclick="window.exportJSON()">Export JSON</button>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>codemapper</title>
+    <script src="/d3.min.js"></script>
+    <script>
+      if (typeof d3 === 'undefined') {
+        var s = document.createElement('script');
+        s.src = 'https://d3js.org/d3.v7.min.js';
+        s.onerror = function () {
+          console.warn('D3 failed to load from CDN');
+        };
+        document.head.appendChild(s);
+      }
+    </script>
+    <script src="/dagre.min.js"></script>
+    <script>
+      if (typeof dagre === 'undefined') {
+        var s2 = document.createElement('script');
+        s2.src = 'https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js';
+        s2.onerror = function () {
+          console.warn('dagre failed to load from CDN');
+        };
+        document.head.appendChild(s2);
+      }
+    </script>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div id="error-overlay" style="display: none">
+      <h2>codemapper</h2>
+      <p id="error-msg"></p>
     </div>
-  </div>
-</div>
-<div id="canvas-container"><canvas id="canvas"></canvas></div>
-<div id="context-menu"></div>
-<div id="tooltip"></div>
-<div id="legend"></div>
-<div id="minimap"><canvas id="mm-canvas"></canvas><div class="mm-viewport" id="mm-viewport"></div></div>
-<div id="zoom-badge">
-  <button onclick="window.resetZoom()" title="Reset zoom">1:1</button>
-  <span id="zoom-level">100%</span>
-</div>
-<div id="help-hint">
-  <kbd>/</kbd> search &nbsp; <kbd>Drag</kbd> pan &nbsp; <kbd>Scroll</kbd> zoom &nbsp; <kbd>Click</kbd> inspect &nbsp; <kbd>Esc</kbd> close &nbsp; <kbd>Right-click</kbd> menu
-</div>
-<div id="sidebar"><div id="sidebar-header"></div><div id="sidebar-content"></div></div>
+    <div id="status-bar">
+      <div class="spinner"></div>
+      <span>Analyzing codebase...</span>
+    </div>
+    <div id="toolbar">
+      <span class="brand">codemapper</span>
+      <span class="sep"></span>
+      <div id="search-container">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#484f58" stroke-width="2">
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+        <input id="search-input" type="text" placeholder="Search..." spellcheck="false" />
+        <span id="search-count"></span>
+      </div>
+      <span class="sep"></span>
+      <span id="stats"></span>
+      <span class="sep"></span>
+      <div style="display: flex; align-items: center; gap: 4px">
+        <button class="filter-btn" data-kind="file" onclick="window.toggleFilter('file')">F</button>
+        <button class="filter-btn" data-kind="function" onclick="window.toggleFilter('function')">fn</button>
+        <button class="filter-btn" data-kind="class" onclick="window.toggleFilter('class')">C</button>
+        <button class="filter-btn" data-kind="interface" onclick="window.toggleFilter('interface')">I</button>
+        <button class="filter-btn" data-kind="type" onclick="window.toggleFilter('type')">T</button>
+      </div>
+      <span class="sep"></span>
+      <button
+        class="filter-btn"
+        id="cycle-btn"
+        onclick="window.toggleCycles()"
+        style="border-color: #f85149; color: #f85149"
+      >
+        ⟳ Cycles
+      </button>
+      <span class="sep"></span>
+      <button class="filter-btn" id="layout-btn" onclick="window.cycleLayout()" title="Switch layout">⊞ Force</button>
+      <span class="sep"></span>
+      <button id="theme-btn" onclick="window.toggleTheme()" title="Toggle theme">🌙</button>
+      <span class="sep"></span>
+      <div class="export-btn" onclick="window.toggleExport(event)">
+        Export &#9662;
+        <div id="export-dropdown">
+          <button onclick="window.exportPNG()">Export PNG</button>
+          <button onclick="window.exportJSON()">Export JSON</button>
+        </div>
+      </div>
+    </div>
+    <div id="canvas-container"><canvas id="canvas"></canvas></div>
+    <div id="context-menu"></div>
+    <div id="tooltip"></div>
+    <div id="legend"></div>
+    <div id="minimap">
+      <canvas id="mm-canvas"></canvas>
+      <div class="mm-viewport" id="mm-viewport"></div>
+    </div>
+    <div id="zoom-badge">
+      <button onclick="window.resetZoom()" title="Reset zoom">1:1</button>
+      <span id="zoom-level">100%</span>
+    </div>
+    <div id="help-hint">
+      <kbd>/</kbd> search &nbsp; <kbd>Drag</kbd> pan &nbsp; <kbd>Scroll</kbd> zoom &nbsp; <kbd>Click</kbd> inspect
+      &nbsp; <kbd>Esc</kbd> close &nbsp; <kbd>Right-click</kbd> menu
+    </div>
+    <div id="sidebar">
+      <div id="sidebar-header"></div>
+      <div id="sidebar-content"></div>
+    </div>
 
-<script src="/bundle.js"></script>
-</body>
+    <script src="/bundle.js"></script>
+  </body>
 </html>

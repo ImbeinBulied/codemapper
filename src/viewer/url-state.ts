@@ -15,8 +15,16 @@
  */
 
 import {
-  transform, hiddenKinds, layoutMode, theme, searchTerm, selectedNode,
-  setLayoutMode, setTheme, setSearchTerm, setSelectedNode,
+  transform,
+  hiddenKinds,
+  layoutMode,
+  theme,
+  searchTerm,
+  selectedNode,
+  setLayoutMode,
+  setTheme,
+  setSearchTerm,
+  setSelectedNode,
   ViewNode,
 } from './state.js';
 
@@ -30,11 +38,11 @@ interface ViewState {
   x?: number;
   y?: number;
   k?: number;
-  h?: string;    // comma-separated hidden kinds
-  l?: string;    // f=force, h=hierarchical, g=grid
-  t?: string;    // d=dark, l=light
-  q?: string;    // search query
-  s?: string;    // selected node id
+  h?: string; // comma-separated hidden kinds
+  l?: string; // f=force, h=hierarchical, g=grid
+  t?: string; // d=dark, l=light
+  q?: string; // search query
+  s?: string; // selected node id
 }
 
 const HIDDEN_DEFAULTS = 'module,call';

@@ -93,20 +93,20 @@ Options for analyze:
 
 ## Viewer Controls
 
-| Keys / Action | Action |
-|------|--------|
-| `/` or `Ctrl+K` | Focus search |
-| Arrow keys | Pan |
-| `+` / `-` | Zoom in / out |
-| `Ctrl+0` | Reset zoom |
-| `Esc` | Close sidebar / context menu |
-| Left-click node | Inspect file |
-| Right-click node | Context menu (copy path, show dependents, filter by kind) |
-| Drag empty space | Pan |
-| Drag node | Reposition |
-| Scroll | Zoom |
-| Layout button | Cycle between Force → Hierarchical → Grid |
-| Cycle button | Toggle cycle dependency highlighting |
+| Keys / Action              | Action                                                            |
+| -------------------------- | ----------------------------------------------------------------- |
+| `/` or `Ctrl+K`            | Focus search                                                      |
+| Arrow keys                 | Pan                                                               |
+| `+` / `-`                  | Zoom in / out                                                     |
+| `Ctrl+0`                   | Reset zoom                                                        |
+| `Esc`                      | Close sidebar / context menu                                      |
+| Left-click node            | Inspect file                                                      |
+| Right-click node           | Context menu (copy path, show dependents, filter by kind)         |
+| Drag empty space           | Pan                                                               |
+| Drag node                  | Reposition                                                        |
+| Scroll                     | Zoom                                                              |
+| Layout button              | Cycle between Force → Hierarchical → Grid                         |
+| Cycle button               | Toggle cycle dependency highlighting                              |
 | F / fn / C / I / T buttons | Toggle visibility of files, functions, classes, interfaces, types |
 
 ## Docker
@@ -124,13 +124,13 @@ docker run -v $(pwd):/workspace codemapper analyze /workspace --format svg --out
 
 ## Supported Languages
 
-| Language | Extensions | Nodes | Deep (`--deep`) |
-|----------|-----------|-------|-----------------|
-| TypeScript / JS | `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs` | files, functions, classes, interfaces, type aliases, arrow functions, extends/implements, call edges | — (regex only) |
-| Rust | `.rs` | files, functions, structs, enums, traits, impl blocks, type aliases, call edges | tree-sitter AST |
-| Python | `.py` | files, functions, classes, imports, call edges | tree-sitter AST |
-| Go | `.go` | files, functions, structs, interfaces, imports, call edges | tree-sitter AST |
-| Java | `.java` | files, methods, classes, interfaces, enums, extends/implements, imports, call edges | tree-sitter AST |
+| Language        | Extensions                           | Nodes                                                                                                | Deep (`--deep`) |
+| --------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------- | --------------- |
+| TypeScript / JS | `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs` | files, functions, classes, interfaces, type aliases, arrow functions, extends/implements, call edges | — (regex only)  |
+| Rust            | `.rs`                                | files, functions, structs, enums, traits, impl blocks, type aliases, call edges                      | tree-sitter AST |
+| Python          | `.py`                                | files, functions, classes, imports, call edges                                                       | tree-sitter AST |
+| Go              | `.go`                                | files, functions, structs, interfaces, imports, call edges                                           | tree-sitter AST |
+| Java            | `.java`                              | files, methods, classes, interfaces, enums, extends/implements, imports, call edges                  | tree-sitter AST |
 
 ## Development
 
