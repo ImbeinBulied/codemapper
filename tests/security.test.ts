@@ -119,3 +119,41 @@ describe('Security: File Size Limit', () => {
     expect(result.content).toBeNull();
   });
 });
+
+describe('Security: HTTP Security Headers', () => {
+  it('sets Content-Security-Policy header', async () => {
+    const res = await fetch(`${baseUrl}/`);
+    const csp = res.headers.get('content-security-policy');
+    expect(csp).toBeTruthy();
+    expect(csp).toContain("default-src 'self'");
+    expect(csp).toContain("script-src 'self'");
+  });
+
+  it('sets X-Content-Type-Options to nosniff', async () => {
+    const res = await fetch(`${baseUrl}/`);
+    expect(res.headers.get('x-content-type-options')).toBe('nosniff');
+  });
+
+  it('sets X-Frame-Options to DENY', async () => {
+    const res = await fetch(`${baseUrl}/`);
+    expect(res.headers.get('x-frame-options')).toBe('SAMEORIGIN');
+  });
+
+  it('sets Strict-Transport-Security', async () => {
+    const res = await fetch(`${baseUrl}/`);
+    const hsts = res.headers.get('strict-transport-security');
+    expect(hsts).toBeTruthy();
+    expect(hsts).toContain('max-age=');
+  });
+
+  it('sets X-DNS-Prefetch-Control to off', async () => {
+    const res = await fetch(`${baseUrl}/`);
+    expect(res.headers.get('x-dns-prefetch-control')).toBe('off');
+  });
+
+  it('sets Content-Type to application/json for /api/file', async () => {
+    const res = await fetch(`${baseUrl}/api/file?path=README.md`);
+    const ct = res.headers.get('content-type');
+    expect(ct).toContain('application/json');
+  });
+});

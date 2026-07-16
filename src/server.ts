@@ -1,4 +1,5 @@
 import express from 'express';
+import helmet from 'helmet';
 import path from 'node:path';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
@@ -65,6 +66,21 @@ export async function startServer(
   }
 
   app.use(express.json({ limit: '1mb' }));
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", 'data:'],
+          connectSrc: ["'self'"],
+        },
+      },
+      crossOriginEmbedderPolicy: false, // viewer loads local assets
+      crossOriginResourcePolicy: false,
+    }),
+  );
 
   // Rate limiting: simple in-memory counter for /api/analyze
   const rateLimits = new Map<string, { count: number; resetAt: number }>();
@@ -159,6 +175,7 @@ export async function startServer(
         line: i + 1,
         text: l,
       }));
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
       res.json({ path: filePath, lines });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -210,7 +227,16 @@ export async function startServer(
   return new Promise((resolve) => {
     const httpServer = http.createServer(app);
     const wss = new WebSocketServer({ server: httpServer });
-    wss.on('connection', (ws) => {
+    wss.on('connection', (ws, req) => {
+      // Origin validation: reject WS connections from unexpected origins
+      const origin = req.headers.origin;
+      if (origin) {
+        const allowed = [`http://${host}:${port}`, `http://127.0.0.1:${port}`, `http://localhost:${port}`];
+        if (!allowed.some((a) => origin.startsWith(a))) {
+          ws.close(4003, 'origin not allowed');
+          return;
+        }
+      }
       wsClients.add(ws);
       ws.on('close', () => wsClients.delete(ws));
       ws.on('error', () => wsClients.delete(ws));
