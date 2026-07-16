@@ -5,5 +5,6 @@ function anotherFunction() {}
 class MixedEndings {
   method() {}
 }
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- adversarial fixture
 interface IMixed {}
 type MixedType = string;
