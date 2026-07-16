@@ -15,17 +15,6 @@
         document.head.appendChild(s);
       }
     </script>
-    <script src="/dagre.min.js"></script>
-    <script>
-      if (typeof dagre === 'undefined') {
-        var s2 = document.createElement('script');
-        s2.src = 'https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js';
-        s2.onerror = function () {
-          console.warn('dagre failed to load from CDN');
-        };
-        document.head.appendChild(s2);
-      }
-    </script>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
@@ -156,6 +145,7 @@
           <button data-mode="default" onclick="window.setHotspotMode('default')">Default</button>
           <button data-mode="complexity" onclick="window.setHotspotMode('complexity')">Complexity</button>
           <button data-mode="churn" onclick="window.setHotspotMode('churn')">Churn (90d)</button>
+          <button data-mode="hotspot" onclick="window.setHotspotMode('hotspot')">Hotspot Score</button>
           <button data-mode="maintainability" onclick="window.setHotspotMode('maintainability')">
             Maintainability
           </button>

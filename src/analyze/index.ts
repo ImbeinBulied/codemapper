@@ -14,7 +14,7 @@ import { parseWithTreesitter, initTreesitter, tsParserAvailable } from './treesi
 import { detectCycles } from '../graph/cycles.js';
 import { analyzeGraph } from '../graph/analytics.js';
 import { validateRegex, readFileSafe } from './utils.js';
-import { getFileChurn } from '../git.js';
+import { getGitChurn } from '../git.js';
 
 const LANG_DETECTORS: [string, string[]][] = [
   ['typescript', ['.ts', '.tsx', '.js', '.jsx', '.mjs']],
@@ -126,7 +126,12 @@ function parseExternalDeps(rootDir: string): { nodes: GraphNode[]; edges: GraphE
   return { nodes, edges };
 }
 
-export async function analyzeCodebase(dir: string, filter?: string, deep?: boolean): Promise<AnalysisResult> {
+export async function analyzeCodebase(
+  dir: string,
+  filter?: string,
+  deep?: boolean,
+  runGit?: boolean,
+): Promise<AnalysisResult> {
   const resolvedDir = path.resolve(dir);
 
   if (!fs.existsSync(resolvedDir)) {
@@ -225,22 +230,38 @@ export async function analyzeCodebase(dir: string, filter?: string, deep?: boole
     if (content) sources.set(n.id.replace(/^file:/, ''), content);
   }
 
-  const analytics = analyzeGraph(graph.nodes, graph.edges, sources);
-
-  // Git metadata per file
+  // Git metadata per file — use efficient batch git churn extraction
   const git: Record<string, { lastModified?: string; author?: string; churn?: number }> = {};
-  for (const n of graph.nodes) {
-    if (n.kind !== 'file') continue;
-    const filePath = path.join(resolvedDir, n.id.replace(/^file:/, ''));
+  if (runGit) {
     try {
-      const churn = getFileChurn(filePath, resolvedDir);
-      if (churn > 0) {
-        git[n.id] = { churn };
+      const gitChurn = await getGitChurn(resolvedDir);
+      for (const n of graph.nodes) {
+        if (n.kind !== 'file') continue;
+        const relPath = n.id.replace(/^file:/, '');
+        const churnData = gitChurn.files.get(relPath);
+        if (churnData && churnData.count > 0) {
+          git[n.id] = {
+            churn: churnData.count,
+            lastModified: churnData.lastModified,
+          };
+        }
       }
     } catch {
       // Not in a git repo — skip
     }
   }
+
+  // Build churn data map for analytics (only if git analysis ran)
+  const churnData = new Map<string, number>();
+  if (runGit) {
+    for (const [id, data] of Object.entries(git)) {
+      if (data.churn !== undefined) {
+        churnData.set(id.replace(/^file:/, ''), data.churn);
+      }
+    }
+  }
+
+  const analytics = analyzeGraph(graph.nodes, graph.edges, sources, churnData);
 
   return {
     graph,

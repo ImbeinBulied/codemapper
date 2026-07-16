@@ -27,10 +27,19 @@ program
   .option('-w, --watch', 'Watch for file changes and auto-refresh')
   .option('-d, --deep', 'Use tree-sitter AST parsing (slower, more accurate)')
   .option('--no-open', 'Do not open browser automatically')
+  .option('--git', 'Enable git churn and hotspot analysis')
   .action(
     async (
       dir: string,
-      opts: { port: string; host: string; open: boolean; filter?: string; watch?: boolean; deep?: boolean },
+      opts: {
+        port: string;
+        host: string;
+        open: boolean;
+        filter?: string;
+        watch?: boolean;
+        deep?: boolean;
+        git?: boolean;
+      },
     ) => {
       try {
         console.log(chalk.cyan(' codemapper ') + chalk.gray(' — analyzing codebase...'));
@@ -44,6 +53,7 @@ program
           watch: opts.watch,
           deep: opts.deep,
           host: opts.host,
+          git: opts.git,
         });
         console.log(chalk.green(`  Viewer running at ${chalk.bold(url)}`));
         if (opts.open !== false) {
@@ -68,34 +78,37 @@ program
   .option('-o, --output <file>', 'Write output to file instead of stdout')
   .option('--format <format>', 'Output format: json or svg', 'json')
   .option('-d, --deep', 'Use tree-sitter AST parsing (slower, more accurate)')
-  .action(async (dir: string, opts: { filter?: string; output?: string; format: string; deep?: boolean }) => {
-    try {
-      const result = await analyzeCodebase(dir, opts.filter, opts.deep);
-      const fmt = opts.format.toLowerCase();
-      if (fmt === 'svg') {
-        const svg = toSVG(result);
-        if (opts.output) {
-          const fs = await import('node:fs');
-          fs.writeFileSync(opts.output, svg, 'utf-8');
-          console.log(chalk.green(`  Wrote SVG to ${chalk.bold(opts.output)}`));
+  .option('--git', 'Enable git churn and hotspot analysis')
+  .action(
+    async (dir: string, opts: { filter?: string; output?: string; format: string; deep?: boolean; git?: boolean }) => {
+      try {
+        const result = await analyzeCodebase(dir, opts.filter, opts.deep, opts.git);
+        const fmt = opts.format.toLowerCase();
+        if (fmt === 'svg') {
+          const svg = toSVG(result);
+          if (opts.output) {
+            const fs = await import('node:fs');
+            fs.writeFileSync(opts.output, svg, 'utf-8');
+            console.log(chalk.green(`  Wrote SVG to ${chalk.bold(opts.output)}`));
+          } else {
+            process.stdout.write(svg);
+          }
         } else {
-          process.stdout.write(svg);
+          const json = toJSON(result);
+          if (opts.output) {
+            const fs = await import('node:fs');
+            fs.writeFileSync(opts.output, json, 'utf-8');
+            console.log(chalk.green(`  Wrote JSON to ${chalk.bold(opts.output)}`));
+          } else {
+            process.stdout.write(json + '\n');
+          }
         }
-      } else {
-        const json = toJSON(result);
-        if (opts.output) {
-          const fs = await import('node:fs');
-          fs.writeFileSync(opts.output, json, 'utf-8');
-          console.log(chalk.green(`  Wrote JSON to ${chalk.bold(opts.output)}`));
-        } else {
-          process.stdout.write(json + '\n');
-        }
+      } catch (err: any) {
+        console.error(chalk.red('Error:'), err.message);
+        process.exit(1);
       }
-    } catch (err: any) {
-      console.error(chalk.red('Error:'), err.message);
-      process.exit(1);
-    }
-  });
+    },
+  );
 
 program
   .command('init')

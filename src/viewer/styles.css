@@ -620,6 +620,84 @@ body {
   border: 0;
 }
 
+/* ── Pathfinder Panel (sidebar) ──────────────────────────────────── */
+.pathfinder-panel {
+  padding: 12px 16px;
+}
+
+.pathfinder-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.pathfinder-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--accent);
+}
+
+.pathfinder-clear {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.pathfinder-clear:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.pathfinder-stats {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.pathfinder-stats .stat b {
+  color: var(--text);
+}
+
+.pathfinder-nodes {
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.pathfinder-nodes ol,
+.pathfinder-nodes ul {
+  padding-left: 20px;
+  margin: 0;
+}
+
+.pathfinder-nodes li {
+  padding: 3px 0;
+  font-size: 12px;
+  color: var(--text);
+  font-family: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', monospace;
+}
+
+.pathfinder-nodes li.source {
+  color: #3fb950;
+  font-weight: 600;
+}
+
+.pathfinder-nodes li.target {
+  color: #f85149;
+  font-weight: 600;
+}
+
+.pathfinder-nodes li.pathfinder-more {
+  color: var(--muted);
+  font-style: italic;
+}
+
 /* ── Mobile / Touch ─────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .filter-btn {

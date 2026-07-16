@@ -25,7 +25,8 @@ import { initUrlHandler, restoreStateFromUrl, applyViewState, saveStateToUrl } f
 import { closeSidebar } from './sidebar.js';
 import type { HotspotMode, HotspotData } from './hotspot.js';
 import './sidebar.js';
-import './dagre-layout.js';
+import { createParserWorker, terminateAllWorkers } from './worker-manager.js';
+import { cleanupLayoutWorker } from './dagre-layout.js';
 import './export-helper.js';
 
 declare const d3: any;
@@ -263,6 +264,14 @@ document.addEventListener('keydown', (e: KeyboardEvent) => {
     case '4':
       (window as any).setHotspotMode('maintainability');
       break;
+    case 'p':
+    case 'P':
+      e.preventDefault();
+      (window as any).clearPathfinder();
+      break;
+    case '5':
+      (window as any).setHotspotMode('hotspot');
+      break;
   }
 });
 
@@ -276,6 +285,10 @@ async function init() {
   initSearch();
   initInteraction();
   initUrlHandler();
+
+  // Create the parser worker (lazy — gracefully handles unavailability)
+  createParserWorker();
+
   await loadGraph();
   resize();
   connectWebSocket();
@@ -376,6 +389,13 @@ try {
 } catch {}
 
 window.addEventListener('resize', resize);
+
+// Clean up worker threads when the viewer closes
+window.addEventListener('beforeunload', () => {
+  cleanupLayoutWorker();
+  terminateAllWorkers();
+});
+
 document.addEventListener('DOMContentLoaded', init);
 
 // ── Hotspot mode toggle ───────────────────────────────────────────────

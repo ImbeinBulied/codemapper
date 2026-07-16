@@ -147,6 +147,12 @@ export function setDirectoryClusters(d: any[]) {
 export function setContextMenuNode(n: ViewNode | null) {
   contextMenuNode = n;
 }
+// Pathfinder state
+export let selectedSourceNode: string | null = null;
+export let selectedTargetNode: string | null = null;
+export let pathfinderActive = false;
+export let activePath: string[] = [];
+export let reachableNodes = new Set<string>();
 export let hotspotMode: import('./hotspot.js').HotspotMode = 'default';
 export let hotspotData: Map<string, import('./hotspot.js').HotspotData> = new Map();
 
@@ -159,4 +165,21 @@ export function setHotspotMode(m: import('./hotspot.js').HotspotMode) {
 
 export function setHotspotData(d: Map<string, import('./hotspot.js').HotspotData>) {
   hotspotData = d;
+}
+
+// Pathfinder setters
+export function setSelectedSourceNode(n: string | null) {
+  selectedSourceNode = n;
+}
+export function setSelectedTargetNode(n: string | null) {
+  selectedTargetNode = n;
+}
+export function setPathfinderActive(v: boolean) {
+  pathfinderActive = v;
+}
+export function setActivePath(p: string[]) {
+  activePath = p;
+}
+export function setReachableNodes(s: Set<string>) {
+  reachableNodes = s;
 }

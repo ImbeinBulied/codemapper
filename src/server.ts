@@ -15,6 +15,7 @@ interface ServerOptions {
   watch?: boolean;
   deep?: boolean;
   host?: string;
+  git?: boolean;
 }
 
 interface CacheEntry {
@@ -121,7 +122,7 @@ export async function startServer(
     }
     // Coalesce concurrent requests — only one analysis runs at a time
     if (!analyzeLock) {
-      analyzeLock = analyzeCodebase(resolvedDir, options.filter, options.deep)
+      analyzeLock = analyzeCodebase(resolvedDir, options.filter, options.deep, options.git)
         .then((result) => {
           cache = { hash: currentHash, result };
           return result;

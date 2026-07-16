@@ -29,13 +29,24 @@ import {
   transitioningNodes,
   ViewNode,
   ViewEdge,
+  pathfinderActive,
+  selectedSourceNode,
+  selectedTargetNode,
+  activePath,
+  setPathfinderActive,
+  setSelectedSourceNode,
+  setSelectedTargetNode,
+  setActivePath,
+  setReachableNodes,
 } from './state.js';
 import { COLORS, NODE_SIZE } from './colors.js';
 import { render } from './renderer.js';
 import { getClusterBlobs } from './renderer.js';
 import { updateZoomLevel, computeDirectoryClusters } from './minimap.js';
 import { selectNode, closeSidebar } from './sidebar.js';
+import { showPathInfo } from './sidebar.js';
 import { LODLevel, currentLOD } from './state.js';
+import { findPath, findReachable, findDependencies, findDependents } from '../graph/pathfinder.js';
 
 declare const d3: any;
 
@@ -150,6 +161,35 @@ container.addEventListener('mousedown', (e: MouseEvent) => {
   if (e.target !== canvas) return;
   const p = screenToCanvas(e.clientX, e.clientY);
   const hit = hitTest(p.x, p.y);
+
+  // Shift+Click on a node: set source/target for pathfinder
+  if (e.shiftKey && hit) {
+    e.preventDefault();
+    if (!selectedSourceNode) {
+      setSelectedSourceNode(hit.id);
+      setSelectedTargetNode(null);
+      setActivePath([]);
+      setReachableNodes(new Set());
+      if (!pathfinderActive) setPathfinderActive(true);
+      render();
+      return;
+    }
+    // Second Shift+Click sets target and computes path
+    if (hit.id !== selectedSourceNode) {
+      setSelectedTargetNode(hit.id);
+      computePath(selectedSourceNode, hit.id);
+    } else {
+      // Clicked same node again — clear source
+      setSelectedSourceNode(null);
+      setSelectedTargetNode(null);
+      setActivePath([]);
+      setReachableNodes(new Set());
+      setPathfinderActive(false);
+      render();
+    }
+    return;
+  }
+
   if (hit) {
     setIsDragging(true);
     setDragNode(hit);
@@ -306,6 +346,13 @@ container.addEventListener('contextmenu', (e: MouseEvent) => {
     escapeAttr(hit.filePath) +
     '">Copy path</button>' +
     '<div class="cm-sep"></div>' +
+    '<button class="cm-item" data-action="trace-deps" data-idx="' +
+    nodeIdx +
+    '">Trace dependencies</button>' +
+    '<button class="cm-item" data-action="trace-dependents" data-idx="' +
+    nodeIdx +
+    '">Trace dependents</button>' +
+    '<div class="cm-sep"></div>' +
     '<button class="cm-item" data-action="show-deps" data-idx="' +
     nodeIdx +
     '">Show dependents</button>' +
@@ -333,6 +380,12 @@ document.addEventListener('click', (e: MouseEvent) => {
     const action = btn.dataset.action;
     if (action === 'copy-path') {
       navigator.clipboard.writeText(btn.dataset.path || '').catch(() => {});
+    } else if (action === 'trace-deps') {
+      const node = nodes[parseInt(btn.dataset.idx || '0')];
+      if (node) computeReachability(node.id, 'dependencies');
+    } else if (action === 'trace-dependents') {
+      const node = nodes[parseInt(btn.dataset.idx || '0')];
+      if (node) computeReachability(node.id, 'dependents');
     } else if (action === 'show-deps') {
       setFocusNode(nodes[parseInt(btn.dataset.idx || '0')] || null);
     } else if (action === 'focus-kind') {
@@ -379,6 +432,13 @@ container.addEventListener(
             '<button class="cm-item" data-action="copy-path" data-path="' +
             escapeAttr(hit.filePath) +
             '">Copy path</button>' +
+            '<div class="cm-sep"></div>' +
+            '<button class="cm-item" data-action="trace-deps" data-idx="' +
+            nodeIdx +
+            '">Trace dependencies</button>' +
+            '<button class="cm-item" data-action="trace-dependents" data-idx="' +
+            nodeIdx +
+            '">Trace dependents</button>' +
             '<div class="cm-sep"></div>' +
             '<button class="cm-item" data-action="show-deps" data-idx="' +
             nodeIdx +
@@ -509,6 +569,73 @@ function scheduleFade(kind: string) {
     }
   }
 }
+
+// ── Pathfinder helpers ───────────────────────────────────────────
+
+/** Convert view-level nodes/edges to graph-level format for pathfinder. */
+function toGraphNodes(): import('../graph/index.js').GraphNode[] {
+  return nodes.map((n) => ({
+    id: n.id,
+    label: n.label,
+    kind: n.kind as any,
+    filePath: n.filePath,
+    line: n.line,
+    col: n.col,
+  }));
+}
+
+function toGraphEdges(): import('../graph/index.js').GraphEdge[] {
+  return edges.map((e) => ({
+    source: (e.source as any).id ?? e.source,
+    target: (e.target as any).id ?? e.target,
+    kind: e.kind as any,
+  }));
+}
+
+/** Compute BFS shortest path and update state. */
+export function computePath(sourceId: string, targetId: string) {
+  const graphNodes = toGraphNodes();
+  const graphEdges = toGraphEdges();
+  const result = findPath(graphNodes, graphEdges, sourceId, targetId);
+  if (result.found) {
+    setActivePath(result.path);
+    setReachableNodes(new Set());
+  } else {
+    setActivePath([]);
+    setReachableNodes(new Set());
+  }
+  showPathInfo();
+  render();
+}
+
+/** Compute reachable nodes (dependencies or dependents) and update state. */
+export function computeReachability(nodeId: string, mode: 'dependencies' | 'dependents', depth: number = 3) {
+  const graphNodes = toGraphNodes();
+  const graphEdges = toGraphEdges();
+  const reachable =
+    mode === 'dependents'
+      ? findDependents(graphNodes, graphEdges, nodeId, depth)
+      : findDependencies(graphNodes, graphEdges, nodeId, depth);
+  setSelectedSourceNode(nodeId);
+  setSelectedTargetNode(null);
+  setActivePath([]);
+  setReachableNodes(reachable);
+  if (!pathfinderActive) setPathfinderActive(true);
+  showPathInfo();
+  render();
+}
+
+/** Clear pathfinder state. */
+export function clearPathfinder() {
+  setSelectedSourceNode(null);
+  setSelectedTargetNode(null);
+  setActivePath([]);
+  setReachableNodes(new Set());
+  setPathfinderActive(false);
+  render();
+}
+
+(window as any).clearPathfinder = clearPathfinder;
 (window as any).resetZoom = () => {
   if (sim) sim.stop();
   setSimSettled(true);

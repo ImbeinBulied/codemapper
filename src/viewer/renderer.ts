@@ -28,6 +28,11 @@ import {
   setLOD,
   hotspotMode,
   hotspotData,
+  pathfinderActive,
+  activePath,
+  selectedSourceNode,
+  selectedTargetNode,
+  reachableNodes,
 } from './state.js';
 import { getNodeColor, getHotspotRange } from './hotspot.js';
 import { updateMinimap } from './minimap.js';
@@ -163,9 +168,162 @@ export function getClusterBlobs(): ClusterBlob[] {
   return lastClusterBlobs;
 }
 
+// ── Pathfinder helpers ──────────────────────────────────────────
+
+/** Build a set of node IDs on the active path for O(1) lookup. */
+function buildActivePathSet(): Set<string> {
+  return new Set(activePath);
+}
+
+/** Build a set of edge keys (source→target) on the active path for O(1) lookup. */
+function buildPathEdgeSet(): Set<string> {
+  const edgeSet = new Set<string>();
+  for (let i = 0; i < activePath.length - 1; i++) {
+    edgeSet.add(`${activePath[i]}→${activePath[i + 1]}`);
+  }
+  return edgeSet;
+}
+
+/**
+ * Draw the pathfinder overlay: highlighted path edges, animated dashes,
+ * and source/target node markers.
+ * Used by both Canvas 2D mode (integrated) and WebGL mode (overlay on 2D canvas).
+ */
+function renderPathOverlay(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  if (!pathfinderActive || activePath.length === 0) return;
+
+  const pathNodeSet = buildActivePathSet();
+  const pathEdgeSet = buildPathEdgeSet();
+  const time = Date.now() / 1000; // seconds for animation
+
+  ctx.save();
+  ctx.translate(transform.x, transform.y);
+  ctx.scale(transform.k, transform.k);
+
+  // ── 1. Draw highlighted path edges ──
+  for (const e of edges) {
+    const src = e.source as any;
+    const tgt = e.target as any;
+    if (!src?.x || !tgt?.x) continue;
+    const srcId = src.id ?? src;
+    const tgtId = tgt.id ?? tgt;
+    const edgeKey = `${srcId}→${tgtId}`;
+    if (!pathEdgeSet.has(edgeKey)) continue;
+
+    const sx = src.x,
+      sy = src.y,
+      tx = tgt.x,
+      ty = tgt.y;
+
+    // Glow
+    ctx.shadowColor = '#58a6ff';
+    ctx.shadowBlur = 8;
+
+    // Main edge line
+    ctx.strokeStyle = '#58a6ff';
+    ctx.lineWidth = 3 / transform.k;
+    ctx.globalAlpha = 1;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(tx, ty);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // ── 2. Animated particles along edge ──
+    const dx = tx - sx;
+    const dy = ty - sy;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 1) continue;
+
+    // Draw 3 particles per edge, staggered
+    const particleSpeed = 1.5; // cycles per second
+    for (let p = 0; p < 3; p++) {
+      const progress = (time * particleSpeed + p / 3) % 1;
+      const px = sx + dx * progress;
+      const py = sy + dy * progress;
+
+      const alpha = 1 - progress; // fade toward target
+      const particleSize = 3 + (1 - progress) * 2; // shrink toward target
+
+      ctx.fillStyle = '#58a6ff';
+      ctx.globalAlpha = alpha * 0.9;
+      ctx.beginPath();
+      ctx.arc(px, py, particleSize / transform.k, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Direction arrow at midpoint
+    ctx.globalAlpha = 0.7;
+    const midX = (sx + tx) / 2;
+    const midY = (sy + ty) / 2;
+    const angle = Math.atan2(dy, dx);
+    const arrowSize = 6 / transform.k;
+    ctx.fillStyle = '#58a6ff';
+    ctx.beginPath();
+    ctx.moveTo(midX + arrowSize * Math.cos(angle), midY + arrowSize * Math.sin(angle));
+    ctx.lineTo(midX + arrowSize * 0.5 * Math.cos(angle + 2.4), midY + arrowSize * 0.5 * Math.sin(angle + 2.4));
+    ctx.lineTo(midX + arrowSize * 0.5 * Math.cos(angle - 2.4), midY + arrowSize * 0.5 * Math.sin(angle - 2.4));
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0;
+
+  // ── 3. Source and target node highlights ──
+  for (const n of nodes) {
+    if (n.x == null || n.y == null) continue;
+    const nid = n.id;
+
+    if (nid === selectedSourceNode || nid === selectedTargetNode) {
+      const isSrc = nid === selectedSourceNode;
+      const color = isSrc ? '#3fb950' : '#f85149'; // green source, red target
+      const label = isSrc ? 'SOURCE' : 'TARGET';
+
+      ctx.save();
+      ctx.translate(n.x, n.y);
+
+      // Glow
+      ctx.shadowColor = color;
+      ctx.shadowBlur = isSrc ? 24 : 24;
+
+      // Outer ring
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3 / transform.k;
+      ctx.globalAlpha = 0.6 + 0.4 * Math.abs(Math.sin(time * 2));
+      ctx.beginPath();
+      ctx.arc(0, 0, 22 / transform.k, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // Label above
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 1;
+      ctx.font = `bold ${Math.max(9, Math.round(10 * transform.k))}px system-ui, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(label, 0, -24 / transform.k - 2 / transform.k);
+
+      ctx.restore();
+    }
+  }
+
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
 export function render() {
   if (glRunning && nodes.length > 500) {
     renderWebGL();
+    // Draw pathfinder overlay on 2D canvas when WebGL is active
+    if (pathfinderActive && activePath.length > 0) {
+      const container = document.getElementById('canvas-container')!;
+      const canvas = document.getElementById('canvas') as HTMLCanvasElement | null;
+      const ctx = canvas?.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, container.clientWidth, container.clientHeight);
+        renderPathOverlay(ctx, container.clientWidth, container.clientHeight);
+      }
+    }
     const canvas = document.getElementById('canvas');
     const glCanvas = document.getElementById('gl-canvas');
     if (canvas) canvas.style.display = 'block';
@@ -174,6 +332,15 @@ export function render() {
     return;
   }
   renderCanvas2D();
+  // Draw pathfinder overlay on top of Canvas 2D
+  if (pathfinderActive && activePath.length > 0) {
+    const container = document.getElementById('canvas-container')!;
+    const canvas = document.getElementById('canvas') as HTMLCanvasElement | null;
+    const ctx = canvas?.getContext('2d');
+    if (ctx) {
+      renderPathOverlay(ctx, container.clientWidth, container.clientHeight);
+    }
+  }
   const glCanvas = document.getElementById('gl-canvas');
   if (glCanvas) glCanvas.style.display = 'none';
   const canvas = document.getElementById('canvas');
@@ -322,6 +489,15 @@ function renderCanvas2D() {
     if (hasHover && !related) alpha = 0.06;
     if (hasFocus && isFocusRelated) alpha = 0.7;
     if (hasFocus && !isFocusRelated) alpha = 0.04;
+    // Dim non-path edges when pathfinder is active
+    if (pathfinderActive && activePath.length > 0) {
+      const srcId = (e.source as any).id ?? e.source;
+      const tgtId = (e.target as any).id ?? e.target;
+      const edgeKey = `${srcId}→${tgtId}`;
+      if (!buildPathEdgeSet().has(edgeKey)) {
+        alpha *= 0.15;
+      }
+    }
     ctx.globalAlpha = alpha;
     ctx.beginPath();
     ctx.moveTo(sx, sy);
@@ -388,6 +564,10 @@ function renderCanvas2D() {
       ctx.shadowBlur = glowBlur;
     }
     if (fadeAlpha < 1) ctx.globalAlpha *= fadeAlpha;
+    // Dim non-path nodes when pathfinder is active
+    if (pathfinderActive && activePath.length > 0 && !buildActivePathSet().has(n.id)) {
+      ctx.globalAlpha *= 0.15;
+    }
     ctx.beginPath();
     let borderColor = '#30363d';
     if (isInCycle) borderColor = '#f85149';
@@ -488,15 +668,31 @@ function renderCanvas2D() {
     ctx.textBaseline = 'bottom';
     ctx.fillText(range.label, legendX, legendY - 4);
 
-    // Gradient bar
-    const gradient = ctx.createLinearGradient(legendX, 0, legendX + legendW, 0);
-    gradient.addColorStop(0, 'rgb(0, 200, 50)');
-    gradient.addColorStop(0.5, 'rgb(255, 200, 50)');
-    gradient.addColorStop(1, 'rgb(255, 0, 50)');
-    ctx.fillStyle = gradient;
-    ctx.beginPath();
-    ctx.roundRect(legendX, legendY, legendW, legendH, 3);
-    ctx.fill();
+    // Gradient bar — use Magma palette for hotspot mode
+    if (hotspotMode === 'hotspot') {
+      // Draw Magma palette gradient
+      const gradient = ctx.createLinearGradient(legendX, 0, legendX + legendW, 0);
+      gradient.addColorStop(0, 'rgb(0, 0, 0)');
+      gradient.addColorStop(0.2, 'rgb(51, 0, 89)');
+      gradient.addColorStop(0.4, 'rgb(102, 41, 0)');
+      gradient.addColorStop(0.6, 'rgb(166, 95, 0)');
+      gradient.addColorStop(0.8, 'rgb(230, 56, 0)');
+      gradient.addColorStop(1, 'rgb(255, 251, 240)');
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.roundRect(legendX, legendY, legendW, legendH, 3);
+      ctx.fill();
+    } else {
+      // Standard green-yellow-red gradient
+      const gradient = ctx.createLinearGradient(legendX, 0, legendX + legendW, 0);
+      gradient.addColorStop(0, 'rgb(0, 200, 50)');
+      gradient.addColorStop(0.5, 'rgb(255, 200, 50)');
+      gradient.addColorStop(1, 'rgb(255, 0, 50)');
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.roundRect(legendX, legendY, legendW, legendH, 3);
+      ctx.fill();
+    }
 
     // Min/Max labels
     ctx.fillStyle = '#8b949e';
