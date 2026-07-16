@@ -16,7 +16,6 @@
 import type { WorkerRequest, LayoutRequestPayload, LayoutResult } from './protocol.js';
 import { MessageType } from './protocol.js';
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const dagre: any = require('dagre');
 
 self.onmessage = (event: MessageEvent<WorkerRequest<LayoutRequestPayload>>) => {
