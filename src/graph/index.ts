@@ -13,6 +13,12 @@ export interface Config {
   exclude?: string[];
   languages?: string[];
   nodeColors?: Record<string, string>;
+  rules?: Array<{
+    from: string;
+    to: string;
+    severity: 'error' | 'warn' | 'forbidden';
+    description?: string;
+  }>;
 }
 
 export interface GraphEdge {
@@ -40,6 +46,8 @@ export interface AnalysisResult {
   analytics?: import('./analytics.js').AnalyticsResult;
   /** Git metadata per file (lastModified, author, churn) */
   git?: Record<string, { lastModified?: string; author?: string; churn?: number }>;
+  /** Rule validation results (CI enforcement) */
+  rules?: import('./rules-engine.js').RulesResult | null;
 }
 
 export interface CycleInfo {

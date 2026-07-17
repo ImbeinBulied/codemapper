@@ -79,10 +79,39 @@ program
   .option('--format <format>', 'Output format: json or svg', 'json')
   .option('-d, --deep', 'Use tree-sitter AST parsing (slower, more accurate)')
   .option('--git', 'Enable git churn and hotspot analysis')
+  .option('--strict', 'Exit with code 1 on error-severity rule violations')
+  .option('--max-warnings <n>', 'Exit with code 1 if warnings exceed threshold', '0')
   .action(
-    async (dir: string, opts: { filter?: string; output?: string; format: string; deep?: boolean; git?: boolean }) => {
+    async (
+      dir: string,
+      opts: {
+        filter?: string;
+        output?: string;
+        format: string;
+        deep?: boolean;
+        git?: boolean;
+        strict?: boolean;
+        maxWarnings?: string;
+      },
+    ) => {
       try {
         const result = await analyzeCodebase(dir, opts.filter, opts.deep, opts.git);
+        // Enforce CI rules
+        if (result.rules) {
+          const maxWarnings = parseInt(opts.maxWarnings || '0', 10);
+          if (opts.strict && result.rules.errorCount > 0) {
+            console.error(chalk.red(`  Error: ${result.rules.errorCount} rule violation(s) found (--strict enabled)`));
+            process.exit(1);
+          }
+          if (result.rules.warnCount > maxWarnings) {
+            console.error(
+              chalk.red(
+                `  Error: ${result.rules.warnCount} warnings exceed --max-warnings threshold of ${maxWarnings}`,
+              ),
+            );
+            process.exit(1);
+          }
+        }
         const fmt = opts.format.toLowerCase();
         if (fmt === 'svg') {
           const svg = toSVG(result);

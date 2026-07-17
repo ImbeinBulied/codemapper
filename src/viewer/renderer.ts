@@ -35,6 +35,7 @@ import {
   reachableNodes,
 } from './state.js';
 import { getNodeColor, getHotspotRange } from './hotspot.js';
+import { blastRadiusActive, blastRadiusSource, blastRadiusAffected } from './state.js';
 import { updateMinimap } from './minimap.js';
 import { saveStateToUrl } from './url-state.js';
 
@@ -538,12 +539,28 @@ function renderCanvas2D() {
     const isInCycle = showCycles && cycleNodes.has(n.id);
     ctx.save();
     ctx.translate(n.x, n.y);
-    const defaultColor = COLORS[n.kind] || '#8b949e';
+    let defaultColor = COLORS[n.kind] || '#8b949e';
+
+    // Blast radius coloring
+    if (blastRadiusActive && blastRadiusAffected.has(n.id)) {
+      const depth = blastRadiusAffected.get(n.id)!;
+      // Color gradient: depth 1 = red, depth 2 = orange, depth 3 = yellow, depth 4+ = green
+      const blastColors = ['#f85149', '#f0883e', '#d29922', '#3fb950'];
+      const colorIdx = Math.min(depth - 1, blastColors.length - 1);
+      defaultColor = blastColors[colorIdx];
+    }
+
     const color =
       hotspotMode !== 'default' ? getNodeColor(n as any, hotspotMode, hotspotData, defaultColor) : defaultColor;
     let glowColor = null,
       glowBlur = 0;
-    if (isInCycle) {
+    if (blastRadiusActive && blastRadiusAffected.has(n.id)) {
+      const depth = blastRadiusAffected.get(n.id)!;
+      const blastColors = ['#f85149', '#f0883e', '#d29922', '#3fb950'];
+      const colorIdx = Math.min(depth - 1, blastColors.length - 1);
+      glowColor = blastColors[colorIdx];
+      glowBlur = 12;
+    } else if (isInCycle) {
       glowColor = '#f85149';
       glowBlur = 16;
     } else if (isSel) {
@@ -570,6 +587,10 @@ function renderCanvas2D() {
     if (fadeAlpha < 1) ctx.globalAlpha *= fadeAlpha;
     // Dim non-path nodes when pathfinder is active
     if (pathfinderActive && activePath.length > 0 && !buildActivePathSet().has(n.id)) {
+      ctx.globalAlpha *= 0.15;
+    }
+    // Dim non-blast-radius nodes when blast radius is active
+    if (blastRadiusActive && !blastRadiusAffected.has(n.id) && n.id !== blastRadiusSource) {
       ctx.globalAlpha *= 0.15;
     }
     ctx.beginPath();

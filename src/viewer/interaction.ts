@@ -38,6 +38,14 @@ import {
   setSelectedTargetNode,
   setActivePath,
   setReachableNodes,
+  blastRadiusActive,
+  blastRadiusSource,
+  blastRadiusAffected,
+  blastRadiusMaxDepth,
+  setBlastRadiusActive,
+  setBlastRadiusSource,
+  setBlastRadiusAffected,
+  setBlastRadiusMaxDepth,
 } from './state.js';
 import { COLORS, NODE_SIZE } from './colors.js';
 import { render } from './renderer.js';
@@ -365,7 +373,12 @@ container.addEventListener('contextmenu', (e: MouseEvent) => {
     escapeAttr(hit.kind) +
     '">Hide ' +
     escapeHtml(hit.kind) +
-    '</button>';
+    '</button>' +
+    '<div class="cm-sep"></div>' +
+    '<button class="cm-item" data-action="blast-radius" data-idx="' +
+    nodeIdx +
+    '">Show blast radius</button>' +
+    '<button class="cm-item" data-action="clear-blast-radius">Clear blast radius</button>';
   contextMenu.style.left = e.clientX + 'px';
   contextMenu.style.top = e.clientY + 'px';
   contextMenu.classList.add('show');
@@ -392,6 +405,27 @@ document.addEventListener('click', (e: MouseEvent) => {
       focusKind(btn.dataset.kind || '');
     } else if (action === 'hide-kind') {
       hideKind(btn.dataset.kind || '');
+    } else if (action === 'blast-radius') {
+      const node = nodes[parseInt(btn.dataset.idx || '0')];
+      if (node) {
+        // Fetch blast radius from API
+        fetch(`/api/blast-radius?node=${encodeURIComponent(node.id)}&depth=${blastRadiusMaxDepth}`)
+          .then((r) => r.json())
+          .then((data) => {
+            const affected = new Map<string, number>(Object.entries(data.affected).map(([k, v]) => [k, v as number]));
+            setBlastRadiusActive(true);
+            setBlastRadiusSource(node.id);
+            setBlastRadiusAffected(affected);
+            setBlastRadiusMaxDepth(data.depth);
+            render();
+          })
+          .catch(() => {});
+      }
+    } else if (action === 'clear-blast-radius') {
+      setBlastRadiusActive(false);
+      setBlastRadiusSource(null);
+      setBlastRadiusAffected(new Map());
+      render();
     }
     contextMenu.classList.remove('show');
     return;
@@ -442,7 +476,12 @@ container.addEventListener(
             '<div class="cm-sep"></div>' +
             '<button class="cm-item" data-action="show-deps" data-idx="' +
             nodeIdx +
-            '">Show dependents</button>';
+            '">Show dependents</button>' +
+            '<div class="cm-sep"></div>' +
+            '<button class="cm-item" data-action="blast-radius" data-idx="' +
+            nodeIdx +
+            '">Show blast radius</button>' +
+            '<button class="cm-item" data-action="clear-blast-radius">Clear blast radius</button>';
           contextMenu.style.left = t.clientX + 'px';
           contextMenu.style.top = t.clientY + 'px';
           contextMenu.classList.add('show');

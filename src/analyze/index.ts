@@ -13,6 +13,7 @@ import { loadConfig } from '../config.js';
 import { parseWithTreesitter, initTreesitter, tsParserAvailable } from './treesitter.js';
 import { detectCycles } from '../graph/cycles.js';
 import { analyzeGraph } from '../graph/analytics.js';
+import { evaluateRules } from '../graph/rules-engine.js';
 import { validateRegex, readFileSafe } from './utils.js';
 import { getGitChurn } from '../git.js';
 
@@ -263,12 +264,19 @@ export async function analyzeCodebase(
 
   const analytics = analyzeGraph(graph.nodes, graph.edges, sources, churnData);
 
+  // Evaluate dependency rules if configured
+  let rulesResult = null;
+  if (config.rules && config.rules.length > 0) {
+    rulesResult = evaluateRules(graph.nodes, graph.edges, config.rules);
+  }
+
   return {
     graph,
     root: resolvedDir,
     stats,
     cycles,
     analytics,
+    rules: rulesResult,
     ...(Object.keys(git).length > 0 ? { git } : {}),
   };
 }

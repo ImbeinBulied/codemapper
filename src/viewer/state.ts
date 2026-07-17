@@ -167,6 +167,25 @@ export function setHotspotData(d: Map<string, import('./hotspot.js').HotspotData
   hotspotData = d;
 }
 
+// Blast radius state
+export let blastRadiusActive = false;
+export let blastRadiusSource: string | null = null;
+export let blastRadiusAffected = new Map<string, number>(); // nodeId → depth
+export let blastRadiusMaxDepth = 3;
+
+export function setBlastRadiusActive(v: boolean) {
+  blastRadiusActive = v;
+}
+export function setBlastRadiusSource(s: string | null) {
+  blastRadiusSource = s;
+}
+export function setBlastRadiusAffected(m: Map<string, number>) {
+  blastRadiusAffected = m;
+}
+export function setBlastRadiusMaxDepth(d: number) {
+  blastRadiusMaxDepth = d;
+}
+
 // Pathfinder setters
 export function setSelectedSourceNode(n: string | null) {
   selectedSourceNode = n;

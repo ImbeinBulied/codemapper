@@ -7,6 +7,8 @@ import http from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { fileURLToPath } from 'node:url';
 import { analyzeCodebase } from './analyze/index.js';
+import { computeHealthScore } from './graph/health.js';
+import { computeBlastRadius } from './graph/pathfinder.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -137,7 +139,11 @@ export async function startServer(
   app.get('/api/analyze', rateLimit, async (_req, res) => {
     try {
       const result = await getCachedResult();
-      // Include cycle count in the response
+      // Compute health score
+      const healthScore = computeHealthScore(result.graph.nodes, result.graph.edges, {
+        metrics: result.analytics?.metrics,
+        cycleNodes: new Set(result.cycles?.flatMap((c: { nodes: string[]; edgeKind: string }) => c.nodes) ?? []),
+      });
       res.json({
         ...result,
         analytics: result.analytics
@@ -147,6 +153,8 @@ export async function startServer(
             }
           : undefined,
         cycleCount: result.cycles?.length || 0,
+        healthScore,
+        violations: result.rules?.violations ?? [],
       });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -184,6 +192,30 @@ export async function startServer(
       }));
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       res.json({ path: filePath, lines });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get('/api/blast-radius', rateLimit, async (req, res) => {
+    try {
+      const nodeId = req.query.node as string;
+      const depth = parseInt(req.query.depth as string, 10) || 3;
+
+      if (!nodeId) {
+        res.status(400).json({ error: 'node query param required' });
+        return;
+      }
+
+      const result = await getCachedResult();
+      const blastRadius = computeBlastRadius(result.graph.nodes, result.graph.edges, nodeId, depth);
+
+      res.json({
+        nodeId,
+        depth,
+        ...blastRadius,
+        affected: Object.fromEntries(blastRadius.affected),
+      });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

@@ -111,4 +111,58 @@ describe('Config validation', () => {
     const config = loadConfig(tmpDir);
     expect(config).toEqual({});
   });
+
+  it('loads valid rules config', async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, '.codemapperrc.json'),
+      JSON.stringify({
+        rules: [
+          { from: 'src/**', to: 'src/legacy/**', severity: 'error', description: 'No legacy deps' },
+          { from: 'tests/**', to: 'src/**', severity: 'warn' },
+          { from: '**/*.test.ts', to: '**/*.spec.ts', severity: 'forbidden' },
+        ],
+      }),
+    );
+    const { loadConfig } = await import('../src/config.js');
+    const config = loadConfig(tmpDir);
+    expect(config.rules).toHaveLength(3);
+    expect(config.rules![0].severity).toBe('error');
+    expect(config.rules![0].description).toBe('No legacy deps');
+    expect(config.rules![1].severity).toBe('warn');
+    expect(config.rules![2].severity).toBe('forbidden');
+  });
+
+  it('rejects rules with invalid severity', async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, '.codemapperrc.json'),
+      JSON.stringify({
+        rules: [{ from: '**', to: '**', severity: 'invalid' }],
+      }),
+    );
+    const { loadConfig } = await import('../src/config.js');
+    const config = loadConfig(tmpDir);
+    expect(config).toEqual({});
+  });
+
+  it('rejects rules with missing from field', async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, '.codemapperrc.json'),
+      JSON.stringify({
+        rules: [{ to: '**', severity: 'error' }],
+      }),
+    );
+    const { loadConfig } = await import('../src/config.js');
+    const config = loadConfig(tmpDir);
+    expect(config).toEqual({});
+  });
+
+  it('rejects non-array rules', async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, '.codemapperrc.json'),
+      JSON.stringify({ rules: 'not-an-array' }),
+    );
+    const { loadConfig } = await import('../src/config.js');
+    const config = loadConfig(tmpDir);
+    expect(config).toEqual({});
+  });
 });

@@ -244,6 +244,88 @@ export function findDependencies(
   return bfsReachable(edges, sourceId, maxDepth, false /* forward */);
 }
 
+export interface BlastRadiusResult {
+  /** Map of nodeId → depth (1 = direct dependent, 2 = dependent of dependent, etc.) */
+  affected: Map<string, number>;
+  /** Total number of affected nodes */
+  totalAffected: number;
+  /** Number of direct dependents (depth 1) */
+  directDependents: number;
+  /** Number of transitive dependents (depth > 1) */
+  transitiveDependents: number;
+  /** Percentage of graph affected (0-100) */
+  percentageAffected: number;
+  /** Max depth reached */
+  maxDepth: number;
+}
+
+/**
+ * Compute blast radius: all nodes that would be affected by a change to sourceId.
+ * Uses reverse BFS (traces incoming edges) up to maxDepth hops.
+ *
+ * @param nodes - Graph nodes
+ * @param edges - Graph edges
+ * @param sourceId - The node being changed
+ * @param maxDepth - Maximum traversal depth (default: 3)
+ * @returns BlastRadiusResult with affected nodes and statistics
+ */
+export function computeBlastRadius(
+  nodes: GraphNode[],
+  edges: GraphEdge[],
+  sourceId: string,
+  maxDepth: number = 3,
+): BlastRadiusResult {
+  const adj = buildAdjacency(edges, true); // reverse: trace incoming edges
+
+  const affected = new Map<string, number>();
+  const queue: Array<{ node: string; depth: number }> = [];
+  let head = 0;
+
+  // Start from direct dependents (depth 1)
+  const directNeighbors = adj.get(sourceId);
+  if (directNeighbors) {
+    for (const next of directNeighbors) {
+      if (next !== sourceId) {
+        affected.set(next, 1);
+        queue.push({ node: next, depth: 1 });
+      }
+    }
+  }
+
+  // BFS to find transitive dependents
+  while (head < queue.length) {
+    const { node, depth } = queue[head++];
+
+    if (depth >= maxDepth) continue;
+
+    const neighbors = adj.get(node);
+    if (!neighbors) continue;
+
+    for (const next of neighbors) {
+      if (next === sourceId) continue; // skip self
+      if (!affected.has(next)) {
+        affected.set(next, depth + 1);
+        queue.push({ node: next, depth: depth + 1 });
+      }
+    }
+  }
+
+  const directDependents = Array.from(affected.values()).filter((d) => d === 1).length;
+  const transitiveDependents = affected.size - directDependents;
+  const totalNodes = nodes.length;
+  const percentageAffected = totalNodes > 0 ? (affected.size / totalNodes) * 100 : 0;
+  const maxDepthReached = affected.size > 0 ? Math.max(...affected.values()) : 0;
+
+  return {
+    affected,
+    totalAffected: affected.size,
+    directDependents,
+    transitiveDependents,
+    percentageAffected,
+    maxDepth: maxDepthReached,
+  };
+}
+
 /**
  * Find all reachable nodes from sourceId within maxDepth hops.
  *

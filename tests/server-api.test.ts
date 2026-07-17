@@ -48,6 +48,26 @@ describe('Server API', () => {
       expect(data).toHaveProperty('cycleCount');
       expect(typeof data.cycleCount).toBe('number');
     });
+
+    it('includes healthScore in response', async () => {
+      const res = await fetch(`${baseUrl}/api/analyze`);
+      const data = await res.json();
+      expect(data).toHaveProperty('healthScore');
+      expect(data.healthScore).toHaveProperty('score');
+      expect(data.healthScore).toHaveProperty('grade');
+      expect(data.healthScore).toHaveProperty('factors');
+      expect(data.healthScore).toHaveProperty('negatives');
+      expect(typeof data.healthScore.score).toBe('number');
+      expect(data.healthScore.score).toBeGreaterThanOrEqual(0);
+      expect(data.healthScore.score).toBeLessThanOrEqual(100);
+    });
+
+    it('includes violations in response', async () => {
+      const res = await fetch(`${baseUrl}/api/analyze`);
+      const data = await res.json();
+      expect(data).toHaveProperty('violations');
+      expect(Array.isArray(data.violations)).toBe(true);
+    });
   });
 
   describe('GET /api/file', () => {

@@ -12,6 +12,7 @@ const CONFIG_SCHEMA: Record<string, string> = {
   exclude: 'array of strings (regex patterns for files to exclude)',
   languages: 'array of strings (language names: typescript, rust, python, go, java, csharp, swift, php)',
   nodeColors: 'object mapping node kinds to color strings',
+  rules: 'array of rule objects (from, to, severity, description)',
 };
 
 const VALID_NODE_KINDS = ['file', 'function', 'class', 'interface', 'type', 'module', 'directory', 'enum'];
@@ -35,6 +36,34 @@ function validateConfig(parsed: unknown): string[] {
   for (const key of Object.keys(obj)) {
     if (!knownKeys.has(key)) {
       errors.push(`Unknown config key: "${key}". Valid keys: ${[...knownKeys].join(', ')}`);
+    }
+  }
+
+  // Validate rules
+  if (obj.rules !== undefined) {
+    if (!Array.isArray(obj.rules)) {
+      errors.push('Config key "rules" must be an array');
+    } else {
+      for (let i = 0; i < obj.rules.length; i++) {
+        const rule = obj.rules[i];
+        if (typeof rule !== 'object' || rule === null) {
+          errors.push(`Config key "rules[${i}]" must be an object`);
+          continue;
+        }
+        const r = rule as Record<string, unknown>;
+        if (typeof r.from !== 'string') {
+          errors.push(`Config key "rules[${i}].from" must be a string`);
+        }
+        if (typeof r.to !== 'string') {
+          errors.push(`Config key "rules[${i}].to" must be a string`);
+        }
+        if (r.severity !== 'error' && r.severity !== 'warn' && r.severity !== 'forbidden') {
+          errors.push(`Config key "rules[${i}].severity" must be one of: error, warn, forbidden`);
+        }
+        if (r.description !== undefined && typeof r.description !== 'string') {
+          errors.push(`Config key "rules[${i}].description" must be a string`);
+        }
+      }
     }
   }
 
@@ -128,6 +157,7 @@ export function loadConfig(dir: string): Config {
         if (Array.isArray(obj.languages)) config.languages = obj.languages as string[];
         if (obj.nodeColors && typeof obj.nodeColors === 'object')
           config.nodeColors = obj.nodeColors as Record<string, string>;
+        if (Array.isArray(obj.rules)) config.rules = obj.rules as Config['rules'];
 
         // Warn if using old filename
         if (configFile === '.codemaperrc.json') {

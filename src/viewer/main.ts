@@ -14,6 +14,13 @@ import {
   setHotspotMode,
   setHotspotData,
   hotspotMode,
+  selectedNode,
+  blastRadiusActive,
+  blastRadiusSource,
+  blastRadiusAffected,
+  setBlastRadiusActive,
+  setBlastRadiusSource,
+  setBlastRadiusAffected,
 } from './state.js';
 import { render, initWebGL } from './renderer.js';
 import { setTheme as setColorsTheme, toggleColorblindMode, isColorblind } from './colors.js';
@@ -83,7 +90,7 @@ function buildLegend() {
 
 function updateStats(data: any) {
   const s = data.stats;
-  document.getElementById('stats')!.innerHTML =
+  let html =
     '<span class="stat"><b>' +
     s.files +
     '</b> files</span>' +
@@ -101,6 +108,28 @@ function updateStats(data: any) {
     '</b> nodes · <b>' +
     data.graph.edges.length +
     '</b> edges</span>';
+
+  if (data.healthScore) {
+    const hs = data.healthScore;
+    const gradeColor = hs.score >= 80 ? '#3fb950' : hs.score >= 50 ? '#d29922' : '#f85149';
+    html +=
+      ' <span class="stat" style="color:' +
+      gradeColor +
+      '"><b>Health:</b> ' +
+      hs.score +
+      '/100 (' +
+      hs.grade +
+      ')</span>';
+  }
+
+  if (data.violations && data.violations.length > 0) {
+    html +=
+      ' <span class="stat" style="color:#f85149"><b>\u26A0\uFE0F ' +
+      data.violations.length +
+      ' rule violations</b></span>';
+  }
+
+  document.getElementById('stats')!.innerHTML = html;
 }
 
 function initGraph(data: any) {
@@ -268,6 +297,32 @@ document.addEventListener('keydown', (e: KeyboardEvent) => {
     case 'P':
       e.preventDefault();
       (window as any).clearPathfinder();
+      break;
+    case 'b':
+    case 'B':
+      e.preventDefault();
+      if (selectedNode) {
+        const nodeId = selectedNode.id;
+        if (blastRadiusActive && blastRadiusSource === nodeId) {
+          // Toggle off
+          setBlastRadiusActive(false);
+          setBlastRadiusSource(null);
+          setBlastRadiusAffected(new Map());
+        } else {
+          // Fetch blast radius for selected node
+          fetch(`/api/blast-radius?node=${encodeURIComponent(nodeId)}&depth=3`)
+            .then((r) => r.json())
+            .then((data) => {
+              const affected = new Map<string, number>(Object.entries(data.affected).map(([k, v]) => [k, v as number]));
+              setBlastRadiusActive(true);
+              setBlastRadiusSource(nodeId);
+              setBlastRadiusAffected(affected);
+              render();
+            })
+            .catch(() => {});
+        }
+        render();
+      }
       break;
     case '5':
       (window as any).setHotspotMode('hotspot');
