@@ -24,7 +24,7 @@ export interface HotspotData {
  * Maps t in [0, 1] → CSS color string.
  * Approximation of matplotlib's magma colormap using key control points.
  */
-const MAGMA_PALETTE: [number, number, number][] = [
+export const MAGMA_PALETTE: [number, number, number][] = [
   [0.0, 0.0, 0.0], // #000000  — cold (low complexity/churn)
   [0.07, 0.0, 0.18], // #12002E
   [0.2, 0.0, 0.35], // #330059
@@ -40,7 +40,7 @@ const MAGMA_PALETTE: [number, number, number][] = [
  * Viridis-inspired color scale (perceptually uniform, colorblind-safe).
  * Maps t in [0, 1] → CSS color string.
  */
-const VIRIDIS_PALETTE: [number, number, number][] = [
+export const VIRIDIS_PALETTE: [number, number, number][] = [
   [0.27, 0.0, 0.33], // #440154  — cold
   [0.2, 0.12, 0.49], // #3B1F70
   [0.13, 0.28, 0.53], // #214C84
@@ -204,10 +204,7 @@ export function getHotspotRange(mode: HotspotMode): { min: number; max: number }
  * Get the normalised weight for a node based on current hotspot mode.
  * Returns 0-1 value suitable for heatmap intensity.
  */
-export function getNodeWeight(
-  mode: HotspotMode,
-  data?: HotspotData,
-): number {
+export function getNodeWeight(mode: HotspotMode, data?: HotspotData): number {
   if (!data) return 0;
   switch (mode) {
     case 'complexity':
@@ -375,10 +372,7 @@ export function renderHeatmapOverlay(
  * Normalize a palette from [0,1]-rgb stops to a flat 256-entry LUT.
  * Used to convert MAGMA_PALETTE / VIRIDIS_PALETTE into heatmap gradients.
  */
-export function paletteToGradient(
-  palette: [number, number, number][],
-  size: number = 256,
-): [number, number, number][] {
+export function paletteToGradient(palette: [number, number, number][], size: number = 256): [number, number, number][] {
   const stops = palette.length - 1;
   const lut: [number, number, number][] = [];
   for (let i = 0; i < size; i++) {

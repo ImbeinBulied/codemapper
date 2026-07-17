@@ -140,10 +140,7 @@ function buildViridisGradient(size: number): [number, number, number][] {
   return buildGradientLUT(stops, size);
 }
 
-function buildGradientLUT(
-  stops: [number, number, number, number][],
-  size: number,
-): [number, number, number][] {
+function buildGradientLUT(stops: [number, number, number, number][], size: number): [number, number, number][] {
   const lut: [number, number, number][] = [];
   for (let i = 0; i < size; i++) {
     const t = i / (size - 1);
@@ -159,11 +156,7 @@ function buildGradientLUT(
     const [t0, r0, g0, b0] = stops[lo];
     const [t1, r1, g1, b1] = stops[lo + 1];
     const frac = (t - t0) / (t1 - t0 || 1);
-    lut.push([
-      Math.round(r0 + (r1 - r0) * frac),
-      Math.round(g0 + (g1 - g0) * frac),
-      Math.round(b0 + (b1 - b0) * frac),
-    ]);
+    lut.push([Math.round(r0 + (r1 - r0) * frac), Math.round(g0 + (g1 - g0) * frac), Math.round(b0 + (b1 - b0) * frac)]);
   }
   return lut;
 }

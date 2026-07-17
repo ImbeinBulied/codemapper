@@ -53,8 +53,17 @@ import { getClusterBlobs } from './renderer.js';
 import { updateZoomLevel, computeDirectoryClusters } from './minimap.js';
 import { selectNode, closeSidebar } from './sidebar.js';
 import { showPathInfo } from './sidebar.js';
-import { LODLevel, currentLOD } from './state.js';
-import { hullsEnabled, hullGroups, hullHoveredGroup, setHullHoveredGroup, toggleHulls } from './state.js';
+import {
+  LODLevel,
+  currentLOD,
+  hullsEnabled,
+  hullGroups,
+  hullHoveredGroup,
+  setHullHoveredGroup,
+  toggleHulls,
+} from './state.js';
+import { heatmapOverlayEnabled, hotspotMode, hotspotData } from './state.js';
+import { getNodeWeight } from './hotspot.js';
 import { hitTestHulls } from './hulls.js';
 import { findPath, findReachable, findDependencies, findDependents } from '../graph/pathfinder.js';
 

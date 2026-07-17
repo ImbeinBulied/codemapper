@@ -526,6 +526,20 @@ let hotspotMenuOpen = false;
   render();
 };
 
+// ── Heatmap overlay toggle ─────────────────────────────────────────
+
+function toggleHeatmapOverlay() {
+  const next = !heatmapOverlayEnabled;
+  setHeatmapOverlayEnabled(next);
+  const btn = document.getElementById('heatmap-btn');
+  if (btn) {
+    btn.setAttribute('data-active', String(next));
+    btn.classList.toggle('active', next);
+  }
+  render();
+}
+(window as any).toggleHeatmapOverlay = toggleHeatmapOverlay;
+
 // Close hotspot menu on outside click
 document.addEventListener('click', (e: MouseEvent) => {
   const menu = document.getElementById('hotspot-menu');

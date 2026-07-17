@@ -3,12 +3,7 @@
  * Extracted into its own module so it can be unit-tested without DOM dependencies.
  */
 
-import type {
-  ProjectStats,
-  GraphProperties,
-  GitStatsData,
-  LanguageStat,
-} from './state.js';
+import type { ProjectStats, GraphProperties, GitStatsData, LanguageStat } from './state.js';
 
 const LANG_COLORS: Record<string, string> = {
   typescript: '#3178c6',
@@ -94,6 +89,7 @@ export function computeStatsFromData(data: any): {
     }
   }
 
+  let totalLoc = 0;
   for (const entry of metricsEntries) {
     totalLoc += entry.loc || 0;
   }

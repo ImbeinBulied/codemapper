@@ -149,7 +149,10 @@ body {
   width: 100%;
   text-align: left;
   transition: background 0.15s;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
 }
 .stats-accordion-header:hover {
   background: var(--surface-hover);
@@ -178,7 +181,10 @@ body {
   justify-content: space-between;
   padding: 4px 0;
   font-size: 12px;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
 }
 .stat-card .stat-label {
   color: var(--muted);
@@ -200,7 +206,10 @@ body {
   border-radius: 4px;
   padding: 2px 8px;
   font-size: 11px;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
 }
 .lang-badge .lang-dot {
   width: 6px;
@@ -236,7 +245,10 @@ body {
   justify-content: space-between;
   padding: 3px 0;
   font-size: 11px;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
   border-bottom: 1px solid var(--border);
 }
 .churn-list li:last-child {
@@ -292,7 +304,10 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin: 8px 0 4px;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
 }
 .stats-section-label:first-child {
   margin-top: 0;
@@ -306,7 +321,10 @@ body {
   border-radius: 4px;
   padding: 1px 6px;
   font-size: 11px;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
 }
 #sidebar-content .line {
   display: flex;
