@@ -54,6 +54,8 @@ import { updateZoomLevel, computeDirectoryClusters } from './minimap.js';
 import { selectNode, closeSidebar } from './sidebar.js';
 import { showPathInfo } from './sidebar.js';
 import { LODLevel, currentLOD } from './state.js';
+import { hullsEnabled, hullGroups, hullHoveredGroup, setHullHoveredGroup, toggleHulls } from './state.js';
+import { hitTestHulls } from './hulls.js';
 import { findPath, findReachable, findDependencies, findDependents } from '../graph/pathfinder.js';
 
 declare const d3: any;
@@ -286,9 +288,21 @@ function processMouseMove() {
       tooltip.style.left = e.clientX + 12 + 'px';
       tooltip.style.top = e.clientY + 12 + 'px';
       clampTooltip();
-    } else {
-      tooltip.style.display = 'none';
     }
+    render();
+  }
+
+  // ── Hull hover detection (only when no node/edge hit) ──
+  if (hullsEnabled && hullGroups.size > 0 && !hit && !edgeHit) {
+    const hullKey = hitTestHulls(p.x, p.y);
+    if (hullKey !== hullHoveredGroup) {
+      setHullHoveredGroup(hullKey);
+      container.style.cursor = hullKey ? 'pointer' : 'default';
+      render();
+    }
+  } else if (hullHoveredGroup !== null) {
+    // Clear hull hover when a node/edge is hit
+    setHullHoveredGroup(null);
     render();
   }
 
@@ -681,6 +695,46 @@ export function clearPathfinder() {
   transform.x = 0;
   transform.y = 0;
   transform.k = 1;
+  updateZoomLevel();
+  render();
+};
+
+/**
+ * Fit all positioned nodes within the viewport, with padding.
+ * Recovers the graph when it has been panned/zoomed out of view.
+ * Zoom is capped so small graphs don't blow up to useless magnification.
+ */
+(window as any).fitToView = () => {
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity,
+    seen = 0;
+  for (const n of nodes) {
+    if (n.x == null || n.y == null) continue;
+    if (hiddenKinds[n.kind]) continue;
+    const r = (NODE_SIZE[n.kind] || 20) * 0.5;
+    if (n.x - r < minX) minX = n.x - r;
+    if (n.x + r > maxX) maxX = n.x + r;
+    if (n.y - r < minY) minY = n.y - r;
+    if (n.y + r > maxY) maxY = n.y + r;
+    seen++;
+  }
+  if (seen === 0) return;
+  const container = document.getElementById('canvas-container');
+  if (!container) return;
+  const w = container.clientWidth,
+    h = container.clientHeight;
+  const bboxW = Math.max(1, maxX - minX),
+    bboxH = Math.max(1, maxY - minY);
+  const PAD = 60; // screen-px padding around the fitted graph
+  const k = Math.min(2, (w - PAD * 2) / bboxW, (h - PAD * 2) / bboxH);
+  transform.k = k > 0 ? k : 1;
+  transform.x = w / 2 - transform.k * (minX + bboxW / 2);
+  transform.y = h / 2 - transform.k * (minY + bboxH / 2);
+  invalidateQuadtree();
+  if (sim) sim.stop();
+  setSimSettled(true);
   updateZoomLevel();
   render();
 };

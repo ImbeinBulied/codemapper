@@ -104,11 +104,209 @@ body {
   font-size: 14px;
 }
 #sidebar-content {
-  flex: 1;
+  flex-shrink: 0;
+  max-height: 50%;
   overflow: auto;
   padding: 0;
   font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace;
   font-size: 12px;
+}
+
+/* ── Stats Dashboard (sidebar below file inspector) ───────────── */
+
+#sidebar-stats {
+  flex: 1;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+  padding: 0;
+  display: none;
+  flex-direction: column;
+}
+#sidebar-stats.has-data {
+  display: flex;
+}
+
+.stats-panel {
+  border-bottom: 1px solid var(--border);
+}
+
+.stats-panel:last-child {
+  border-bottom: none;
+}
+
+.stats-accordion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+  transition: background 0.15s;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+.stats-accordion-header:hover {
+  background: var(--surface-hover);
+}
+.stats-accordion-header .stats-toggle {
+  font-size: 10px;
+  color: var(--muted);
+  transition: transform 0.2s;
+}
+.stats-accordion-header.collapsed .stats-toggle {
+  transform: rotate(-90deg);
+}
+
+.stats-accordion-body {
+  padding: 4px 16px 12px;
+  overflow: hidden;
+}
+.stats-accordion-body.collapsed {
+  display: none;
+}
+
+/* Metric cards — simple stat rows */
+.stat-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 12px;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+.stat-card .stat-label {
+  color: var(--muted);
+  font-size: 11px;
+}
+.stat-card .stat-value {
+  color: var(--text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Language badges */
+.lang-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+.lang-badge .lang-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.lang-badge .lang-name {
+  color: var(--text);
+}
+.lang-badge .lang-count {
+  color: var(--muted);
+}
+
+/* Language list in panel */
+.lang-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+  padding-top: 2px;
+}
+
+/* Churn file list (git) */
+.churn-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.churn-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 0;
+  font-size: 11px;
+  font-family: system-ui, -apple-system, sans-serif;
+  border-bottom: 1px solid var(--border);
+}
+.churn-list li:last-child {
+  border-bottom: none;
+}
+.churn-list .churn-file {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  margin-right: 8px;
+}
+.churn-list .churn-count {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.churn-list .hot-score {
+  color: #f0883e;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+/* Instability distribution bar */
+.instability-bar {
+  display: flex;
+  gap: 2px;
+  margin-top: 4px;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.instability-bar .bar-segment {
+  height: 100%;
+  border-radius: 2px;
+}
+.instability-bar .bar-segment.low {
+  background: #3fb950;
+}
+.instability-bar .bar-segment.medium {
+  background: #d29922;
+}
+.instability-bar .bar-segment.high {
+  background: #f85149;
+}
+
+/* Section label inside stats panels */
+.stats-section-label {
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 8px 0 4px;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+.stats-section-label:first-child {
+  margin-top: 0;
+}
+
+/* Graph density badge */
+.density-badge {
+  display: inline-block;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-family: system-ui, -apple-system, sans-serif;
 }
 #sidebar-content .line {
   display: flex;
@@ -271,8 +469,39 @@ body {
   border-color: var(--muted);
 }
 
-#export-dropdown {
-  display: none;
+/* ── "More" dropdown (collapses theme/colorblind/hotspot/export) ── */
+.group-label {
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  user-select: none;
+}
+/* Push "More" and everything after it toward the right edge of the toolbar. */
+.more-sep {
+  margin-left: auto;
+}
+.more-menu {
+  position: relative;
+}
+#more-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 4px;
+  padding: 2px 10px;
+  cursor: pointer;
+  font-size: 11px;
+  min-height: 28px;
+  white-space: nowrap;
+}
+#more-btn:hover,
+#more-btn[aria-expanded='true'] {
+  color: var(--text);
+  border-color: var(--accent);
+}
+#more-dropdown {
   position: absolute;
   top: 100%;
   right: 0;
@@ -281,10 +510,57 @@ body {
   border: 1px solid var(--border);
   border-radius: 6px;
   z-index: 15;
-  min-width: 120px;
+  min-width: 160px;
   padding: 4px 0;
 }
-#export-dropdown.show {
+#more-dropdown.hidden {
+  display: none;
+}
+#more-dropdown > button,
+#more-dropdown .more-submenu > button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 12px;
+  text-align: left;
+  padding: 6px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+#more-dropdown > button:hover,
+#more-dropdown .more-submenu > button:hover {
+  background: var(--surface-hover);
+}
+#more-dropdown button span {
+  flex: 1;
+}
+/* Items that open a flyout submenu show a ▸ on the trailing edge. */
+.more-submenu {
+  position: relative;
+}
+/* Inside "More", reuse .hidden to collapse the nested flyouts. */
+#more-dropdown .hidden {
+  display: none;
+}
+
+#export-dropdown {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 100%;
+  margin-left: 2px;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  z-index: 16;
+  min-width: 130px;
+  padding: 4px 0;
+}
+#export-dropdown:not(.hidden) {
   display: block;
 }
 #export-dropdown button {
@@ -377,9 +653,20 @@ body {
   white-space: nowrap;
   opacity: 0.7;
   transition: opacity 0.2s;
+  animation: hint-pulse 1.2s ease-in-out 3;
 }
 #help-hint:hover {
   opacity: 1;
+}
+/* Brief attention pulse on first load so the hint is noticed, then settles. */
+@keyframes hint-pulse {
+  0%,
+  100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 #help-hint kbd {
   background: var(--surface-hover);
@@ -573,13 +860,13 @@ body {
   display: flex;
   flex-direction: column;
   position: absolute;
-  top: 100%;
-  left: 0;
-  margin-top: 4px;
+  top: 0;
+  left: 100%;
+  margin-left: 2px;
   background: var(--surface-hover);
   border: 1px solid var(--border);
   border-radius: 6px;
-  z-index: 15;
+  z-index: 16;
   min-width: 140px;
   padding: 4px 0;
 }

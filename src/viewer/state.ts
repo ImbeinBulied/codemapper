@@ -155,6 +155,7 @@ export let activePath: string[] = [];
 export let reachableNodes = new Set<string>();
 export let hotspotMode: import('./hotspot.js').HotspotMode = 'default';
 export let hotspotData: Map<string, import('./hotspot.js').HotspotData> = new Map();
+export let heatmapOverlayEnabled = false;
 
 export function setSim(s: any) {
   sim = s;
@@ -165,6 +166,10 @@ export function setHotspotMode(m: import('./hotspot.js').HotspotMode) {
 
 export function setHotspotData(d: Map<string, import('./hotspot.js').HotspotData>) {
   hotspotData = d;
+}
+
+export function setHeatmapOverlayEnabled(v: boolean) {
+  heatmapOverlayEnabled = v;
 }
 
 // Blast radius state
@@ -184,6 +189,88 @@ export function setBlastRadiusAffected(m: Map<string, number>) {
 }
 export function setBlastRadiusMaxDepth(d: number) {
   blastRadiusMaxDepth = d;
+}
+
+// ── Stats dashboard state ──────────────────────────────────────
+
+export interface LanguageStat {
+  name: string;
+  count: number;
+  percentage: number;
+}
+
+export interface ProjectStats {
+  languages: LanguageStat[];
+  fileCount: number;
+  functionCount: number;
+  classCount: number;
+  importCount: number;
+  totalLoc: number;
+  dependencyCount: number;
+}
+
+export interface GraphProperties {
+  nodeCount: number;
+  edgeCount: number;
+  cycleCount: number;
+  density: number;
+  avgFanIn: number;
+  avgFanOut: number;
+  avgInstability: number;
+  instabilityDistribution: { low: number; medium: number; high: number };
+}
+
+export interface GitStatsData {
+  totalCommits: number;
+  timeRange: string;
+  topChurnedFiles: Array<{ path: string; churn: number }>;
+  hotFiles: Array<{ path: string; score: number }>;
+}
+
+export let projectStats: ProjectStats | null = null;
+export let graphProperties: GraphProperties | null = null;
+export let gitStats: GitStatsData | null = null;
+
+export function setProjectStats(s: ProjectStats | null) {
+  projectStats = s;
+}
+export function setGraphProperties(p: GraphProperties | null) {
+  graphProperties = p;
+}
+export function setGitStats(g: GitStatsData | null) {
+  gitStats = g;
+}
+
+// Hull state
+export let hullsEnabled = false;
+export let hullGroups = new Map<
+  string,
+  {
+    points: { x: number; y: number }[];
+    color: string;
+    label: string;
+    dir: string;
+    depth: number;
+    minX: number;
+    maxX: number;
+    minY: number;
+    maxY: number;
+    count: number;
+  }
+>();
+export let hullHoveredGroup: string | null = null;
+
+export function setHullsEnabled(v: boolean) {
+  hullsEnabled = v;
+}
+export function toggleHulls() {
+  hullsEnabled = !hullsEnabled;
+}
+export function setHullGroups(g: typeof hullGroups) {
+  hullGroups = g;
+}
+export function setHullHoveredGroup(g: string | null) {
+  hullHoveredGroup = g;
 }
 
 // Pathfinder setters

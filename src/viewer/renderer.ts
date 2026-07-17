@@ -34,10 +34,22 @@ import {
   selectedTargetNode,
   reachableNodes,
 } from './state.js';
-import { getNodeColor, getHotspotRange } from './hotspot.js';
+import {
+  getNodeColor,
+  getHotspotRange,
+  buildHeatmapPoints,
+  renderHeatmapOverlay,
+  paletteToGradient,
+  MAGMA_PALETTE,
+  VIRIDIS_PALETTE,
+} from './hotspot.js';
 import { blastRadiusActive, blastRadiusSource, blastRadiusAffected } from './state.js';
 import { updateMinimap } from './minimap.js';
 import { saveStateToUrl } from './url-state.js';
+import { heatmapOverlayEnabled } from './state.js';
+import { hullsEnabled, hullGroups, hullHoveredGroup } from './state.js';
+import { renderHulls, computeHullGroups } from './hulls.js';
+import { setHullGroups } from './state.js';
 
 // ── LOD (Level of Detail) ──────────────────────────────────────────
 
@@ -325,6 +337,48 @@ export function render() {
         renderPathOverlay(ctx, container.clientWidth, container.clientHeight);
       }
     }
+    // Draw hulls on 2D canvas overlay when WebGL is active
+    if (hullsEnabled) {
+      // Recompute from current node positions
+      setHullGroups(computeHullGroups());
+      if (hullGroups.size > 0) {
+        const container = document.getElementById('canvas-container')!;
+        const canvas = document.getElementById('canvas') as HTMLCanvasElement | null;
+        const ctx = canvas?.getContext('2d');
+        if (ctx) {
+          ctx.save();
+          ctx.translate(transform.x, transform.y);
+          ctx.scale(transform.k, transform.k);
+          renderHulls(ctx, hullGroups, transform.k);
+          ctx.restore();
+        }
+      }
+    }
+    // Draw heatmap overlay on 2D canvas when WebGL is active
+    if (heatmapOverlayEnabled && hotspotMode !== 'default') {
+      const container = document.getElementById('canvas-container')!;
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      const canvas = document.getElementById('canvas') as HTMLCanvasElement | null;
+      const ctx = canvas?.getContext('2d');
+      if (ctx) {
+        const visibleNodes = nodes.filter((n) => n.x != null);
+        const hmPoints = buildHeatmapPoints(visibleNodes, hotspotData, hotspotMode, transform, hiddenKinds);
+        let gradient: [number, number, number][];
+        if (hotspotMode === 'hotspot') {
+          gradient = paletteToGradient(MAGMA_PALETTE);
+        } else if (hotspotMode === 'maintainability') {
+          gradient = paletteToGradient(VIRIDIS_PALETTE);
+        } else {
+          gradient = paletteToGradient([
+            [0.0, 0.78, 0.2],
+            [1.0, 0.78, 0.2],
+            [1.0, 0.0, 0.2],
+          ] as [number, number, number][]);
+        }
+        renderHeatmapOverlay(ctx, w, h, hmPoints, 0, gradient);
+      }
+    }
     const canvas = document.getElementById('canvas');
     const glCanvas = document.getElementById('gl-canvas');
     if (canvas) canvas.style.display = 'block';
@@ -424,6 +478,15 @@ function renderCanvas2D() {
     updateLODIndicator(nodes.length, blobs.length);
     ctx.restore();
     return;
+  }
+
+  // ── Hulls (behind nodes, in front of grid) ──
+  if (hullsEnabled) {
+    // Recompute from current node positions
+    setHullGroups(computeHullGroups());
+    if (hullGroups.size > 0) {
+      renderHulls(ctx, hullGroups, transform.k);
+    }
   }
 
   for (const dc of directoryClusters) {
@@ -642,9 +705,17 @@ function renderCanvas2D() {
     ctx.lineWidth = bw / transform.k;
     ctx.stroke();
     ctx.shadowBlur = 0;
-    if (transform.k > 0.3) {
+    // Tiered labeling reduces the wall-of-text at low zoom:
+    //   k >= 0.8  → all labels
+    //   k >= 0.5  → only anchor nodes (file / class)
+    //   k <  0.5  → none (rely on cluster blobs + hover)
+    // Interacted nodes (hover/select/focus/match) always get a label.
+    const alwaysLabel = isHover || isSel || isFocus || isMatch;
+    const ambientLabel = transform.k >= 0.8 || (transform.k >= 0.5 && (n.kind === 'file' || n.kind === 'class'));
+    if (alwaysLabel || ambientLabel) {
       let textColor = '#8b949e';
       if (isHover) textColor = '#e6edf3';
+      else if (isSel) textColor = '#58a6ff';
       else if (isMatch) textColor = '#f0883e';
       else if (isFocus) textColor = '#e6edf3';
       ctx.fillStyle = textColor;
@@ -732,6 +803,25 @@ function renderCanvas2D() {
     ctx.fillText(String(range.min), legendX, legendY + legendH + 2);
     ctx.textAlign = 'right';
     ctx.fillText(String(range.max), legendX + legendW, legendY + legendH + 2);
+  }
+
+  // ── Heatmap overlay ──────────────────────────────────────────────
+  if (heatmapOverlayEnabled && hotspotMode !== 'default') {
+    const visibleNodes = nodes.filter((n) => n.x != null);
+    const hmPoints = buildHeatmapPoints(visibleNodes, hotspotData, hotspotMode, transform, hiddenKinds);
+    let gradient: [number, number, number][];
+    if (hotspotMode === 'hotspot') {
+      gradient = paletteToGradient(MAGMA_PALETTE);
+    } else if (hotspotMode === 'maintainability') {
+      gradient = paletteToGradient(VIRIDIS_PALETTE);
+    } else {
+      gradient = paletteToGradient([
+        [0.0, 0.78, 0.2],
+        [1.0, 0.78, 0.2],
+        [1.0, 0.0, 0.2],
+      ] as [number, number, number][]);
+    }
+    renderHeatmapOverlay(ctx, w, h, hmPoints, 0, gradient);
   }
 
   ctx.restore();

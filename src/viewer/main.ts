@@ -21,6 +21,12 @@ import {
   setBlastRadiusActive,
   setBlastRadiusSource,
   setBlastRadiusAffected,
+  heatmapOverlayEnabled,
+  setHeatmapOverlayEnabled,
+  hullsEnabled,
+  setHullGroups,
+  hullGroups,
+  toggleHulls,
 } from './state.js';
 import { render, initWebGL } from './renderer.js';
 import { setTheme as setColorsTheme, toggleColorblindMode, isColorblind } from './colors.js';
@@ -29,12 +35,13 @@ import { computeDirectoryClusters, updateZoomLevel } from './minimap.js';
 import { initSearch } from './search.js';
 import { initInteraction } from './interaction.js';
 import { initUrlHandler, restoreStateFromUrl, applyViewState, saveStateToUrl } from './url-state.js';
-import { closeSidebar } from './sidebar.js';
+import { closeSidebar, renderStatsDashboard } from './sidebar.js';
 import type { HotspotMode, HotspotData } from './hotspot.js';
 import './sidebar.js';
 import { createParserWorker, terminateAllWorkers } from './worker-manager.js';
 import { cleanupLayoutWorker } from './dagre-layout.js';
 import './export-helper.js';
+import { computeHullGroups } from './hulls.js';
 
 declare const d3: any;
 
@@ -177,6 +184,9 @@ function initGraph(data: any) {
   statusBar.classList.remove('show');
   updateZoomLevel();
 
+  // Populate stats dashboard panels
+  renderStatsDashboard(data);
+
   // Populate hotspot data from analytics and git info
   if (data.analytics && data.analytics.metrics) {
     const hData = new Map<string, HotspotData>();
@@ -281,6 +291,14 @@ document.addEventListener('keydown', (e: KeyboardEvent) => {
       e.preventDefault();
       (window as any).toggleHotspotMenu();
       break;
+    case 'H':
+      e.preventDefault();
+      toggleHulls();
+      if (hullsEnabled) {
+        setHullGroups(computeHullGroups());
+      }
+      render();
+      break;
     case '1':
       (window as any).setHotspotMode('complexity');
       break;
@@ -326,6 +344,10 @@ document.addEventListener('keydown', (e: KeyboardEvent) => {
       break;
     case '5':
       (window as any).setHotspotMode('hotspot');
+      break;
+    case '6':
+      e.preventDefault();
+      toggleHeatmapOverlay();
       break;
   }
 });
@@ -403,8 +425,9 @@ function applyTheme(t: 'dark' | 'light') {
   setTheme(t);
   setColorsTheme(t);
   document.documentElement.classList.toggle('light', t === 'light');
+  // Preserve the "<emoji> Theme" label structure; only swap the leading glyph.
   const btn = document.getElementById('theme-btn');
-  if (btn) btn.textContent = t === 'light' ? '\u{1F319}' : '\u{2600}\u{FE0F}';
+  if (btn && btn.firstChild) btn.firstChild.textContent = t === 'light' ? '\u{2600}\u{FE0F} ' : '\u{1F319} ';
   render();
 }
 
@@ -414,6 +437,17 @@ function applyTheme(t: 'dark' | 'light') {
   try {
     localStorage.setItem('codemapper-theme', next);
   } catch {}
+};
+
+// Hull toggle with button state
+(window as any).toggleHulls = () => {
+  toggleHulls();
+  if (hullsEnabled) {
+    setHullGroups(computeHullGroups());
+  }
+  const btn = document.getElementById('hull-btn');
+  if (btn) btn.setAttribute('aria-pressed', String(hullsEnabled));
+  render();
 };
 
 // Colorblind mode toggle with localStorage persistence
@@ -457,7 +491,8 @@ document.addEventListener('DOMContentLoaded', init);
 
 let hotspotMenuOpen = false;
 
-(window as any).toggleHotspotMenu = () => {
+(window as any).toggleHotspotMenu = (e?: MouseEvent) => {
+  e?.stopPropagation();
   const menu = document.getElementById('hotspot-menu');
   const btn = document.getElementById('hotspot-btn');
   if (!menu || !btn) return;
@@ -486,6 +521,8 @@ let hotspotMenuOpen = false;
   if (hotspotMenu) hotspotMenu.classList.add('hidden');
   hotspotMenuOpen = false;
   if (btn) btn.classList.remove('active');
+  // Refresh git panel stats (hot files may change with different mode)
+  renderStatsDashboard();
   render();
 };
 

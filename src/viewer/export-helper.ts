@@ -1,10 +1,51 @@
 import { graphData, showCycles, setShowCycles } from './state.js';
 import { render } from './renderer.js';
 
-(window as any).toggleExport = function (e: MouseEvent) {
-  const dd = document.getElementById('export-dropdown')!;
-  dd.classList.toggle('show');
+/**
+ * Close every toolbar dropdown (More menu + its submenus).
+ * Called when one opens, on selection, and on outside clicks.
+ */
+function closeAllDropdowns() {
+  for (const id of ['more-dropdown', 'hotspot-menu', 'export-dropdown']) {
+    document.getElementById(id)?.classList.add('hidden');
+  }
+  const more = document.getElementById('more-btn');
+  if (more) more.setAttribute('aria-expanded', 'false');
+}
+
+(window as any).closeAllDropdowns = closeAllDropdowns;
+
+/** Toggle the top-level "More" dropdown. */
+(window as any).toggleMoreMenu = function (e: MouseEvent) {
   e.stopPropagation();
+  const dd = document.getElementById('more-dropdown');
+  if (!dd) return;
+  const btn = e.currentTarget as HTMLElement;
+  const open = !dd.classList.contains('hidden');
+  closeAllDropdowns();
+  if (!open) {
+    dd.classList.remove('hidden');
+    btn.setAttribute('aria-expanded', 'true');
+  }
+};
+
+// Click outside any open dropdown closes them all.
+document.addEventListener('click', (e) => {
+  const t = e.target as HTMLElement;
+  if (t.closest('.more-menu')) return; // inside the More container — let inner handlers run
+  const anyOpen = ['more-dropdown', 'hotspot-menu', 'export-dropdown'].some(
+    (id) => !document.getElementById(id)?.classList.contains('hidden'),
+  );
+  if (anyOpen) closeAllDropdowns();
+});
+
+(window as any).toggleExport = function (e: MouseEvent) {
+  e.stopPropagation();
+  const dd = document.getElementById('export-dropdown');
+  if (!dd) return;
+  const open = !dd.classList.contains('hidden');
+  closeAllDropdowns();
+  if (!open) dd.classList.remove('hidden');
 };
 
 (window as any).toggleCycles = function () {
@@ -14,27 +55,12 @@ import { render } from './renderer.js';
   render();
 };
 
-(window as any).toggleTheme = function () {
-  const root = document.documentElement;
-  const isLight = root.classList.toggle('light');
-  const btn = document.getElementById('theme-btn');
-  if (btn) btn.textContent = isLight ? '☀️' : '🌙';
-  localStorage.setItem('codemapper-theme', isLight ? 'light' : 'dark');
-  render();
-};
-
-// Apply saved theme preference
-(function initTheme() {
-  const saved = localStorage.getItem('codemapper-theme');
-  if (saved === 'light') {
-    document.documentElement.classList.add('light');
-    const btn = document.getElementById('theme-btn');
-    if (btn) btn.textContent = '☀️';
-  }
-})();
+// NOTE: toggleTheme + saved-theme init live in main.ts (applyTheme).
+// Theme handling was previously duplicated here; main.ts owns it since it
+// also drives the canvas renderer's color set via setColorsTheme().
 
 (window as any).exportPNG = function () {
-  document.getElementById('export-dropdown')!.classList.remove('show');
+  document.getElementById('export-dropdown')!.classList.add('hidden');
   const container = document.getElementById('canvas-container')!;
   const dpr = window.devicePixelRatio || 1;
   const exportCanvas = document.createElement('canvas');
@@ -55,7 +81,7 @@ import { render } from './renderer.js';
 };
 
 (window as any).exportJSON = function () {
-  document.getElementById('export-dropdown')!.classList.remove('show');
+  document.getElementById('export-dropdown')!.classList.add('hidden');
   const data = JSON.stringify(graphData, null, 2);
   const blob = new Blob([data], { type: 'application/json' });
   const a = document.createElement('a');

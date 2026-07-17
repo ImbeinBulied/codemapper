@@ -199,3 +199,201 @@ export function getHotspotRange(mode: HotspotMode): { min: number; max: number }
       return { min: 0, max: 1 };
   }
 }
+
+/**
+ * Get the normalised weight for a node based on current hotspot mode.
+ * Returns 0-1 value suitable for heatmap intensity.
+ */
+export function getNodeWeight(
+  mode: HotspotMode,
+  data?: HotspotData,
+): number {
+  if (!data) return 0;
+  switch (mode) {
+    case 'complexity':
+      return data.complexity !== undefined ? Math.min(data.complexity / 20, 1) : 0;
+    case 'churn':
+      return data.churn !== undefined ? Math.min(data.churn / 50, 1) : 0;
+    case 'hotspot':
+      return data.heat ?? 0;
+    case 'coupling':
+      return data.coupling !== undefined ? Math.min(data.coupling / 30, 1) : 0;
+    case 'maintainability':
+      return data.maintainability !== undefined ? Math.min((171 - data.maintainability) / 171, 1) : 0;
+    default:
+      return 0;
+  }
+}
+
+/**
+ * Build heatmap points from visible nodes, transforming node positions
+ * to screen coordinates.
+ */
+export function buildHeatmapPoints(
+  nodes: Array<{ id: string; x: number | null; y: number | null; kind: string }>,
+  hotspotData: Map<string, HotspotData>,
+  mode: HotspotMode,
+  transform: { x: number; y: number; k: number },
+  hiddenKinds: Record<string, boolean>,
+): Array<{ x: number; y: number; weight: number }> {
+  const points: Array<{ x: number; y: number; weight: number }> = [];
+  let maxWeight = 0;
+
+  for (const n of nodes) {
+    if (n.x == null || n.y == null) continue;
+    if (hiddenKinds[n.kind]) continue;
+
+    const data = hotspotData.get(n.id);
+    const weight = getNodeWeight(mode, data);
+    if (weight <= 0) continue;
+
+    // Transform to screen coordinates
+    const sx = n.x * transform.k + transform.x;
+    const sy = n.y * transform.k + transform.y;
+
+    points.push({ x: sx, y: sy, weight });
+    if (weight > maxWeight) maxWeight = weight;
+  }
+
+  return points;
+}
+
+/**
+ * Pre-rendered heatmap circle stamp for fast point drawing.
+ * Created lazily and cached.
+ */
+let _heatmapCircle: HTMLCanvasElement | null = null;
+let _heatmapCircleRadius = 0;
+
+function getHeatmapCircle(radius: number): HTMLCanvasElement {
+  if (_heatmapCircle && _heatmapCircleRadius === radius) {
+    return _heatmapCircle;
+  }
+
+  const size = radius * 2;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+
+  // Create a soft radial gradient for smooth heatmap dots
+  const grad = ctx.createRadialGradient(radius, radius, 0, radius, radius, radius);
+  grad.addColorStop(0, 'rgba(0,0,0,1)');
+  grad.addColorStop(0.2, 'rgba(0,0,0,1)');
+  grad.addColorStop(0.4, 'rgba(0,0,0,0.7)');
+  grad.addColorStop(0.6, 'rgba(0,0,0,0.3)');
+  grad.addColorStop(0.8, 'rgba(0,0,0,0.08)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+
+  _heatmapCircle = canvas;
+  _heatmapCircleRadius = radius;
+  return canvas;
+}
+
+/**
+ * Render a heatmap overlay onto a canvas context using canvas-based rendering.
+ *
+ * This is a self-contained implementation inspired by simpleheat.js with no
+ * external dependencies:
+ * 1. Draws soft radial-gradient circles at each weighted point
+ * 2. Colorizes the grayscale intensity using the gradient LUT
+ * 3. Composites over the target context
+ *
+ * @param ctx - Target canvas 2D context (should be at CSS-pixel resolution)
+ * @param w - Width in CSS pixels
+ * @param h - Height in CSS pixels
+ * @param points - Array of {x, y, weight} in CSS-pixel screen coordinates
+ * @param maxWeight - Maximum weight for normalisation (if <= 0, uses max from points)
+ * @param gradient - 256-entry RGB gradient LUT
+ * @param radius - Heatmap dot radius (default 30 CSS pixels)
+ */
+export function renderHeatmapOverlay(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  points: Array<{ x: number; y: number; weight: number }>,
+  maxWeight: number,
+  gradient: [number, number, number][],
+  radius: number = 30,
+): void {
+  if (points.length === 0) return;
+
+  // Determine max weight
+  if (maxWeight <= 0) {
+    for (const p of points) {
+      if (p.weight > maxWeight) maxWeight = p.weight;
+    }
+  }
+  if (maxWeight <= 0) return;
+
+  // Create offscreen canvas at CSS pixel resolution
+  const offscreen = document.createElement('canvas');
+  offscreen.width = w;
+  offscreen.height = h;
+  const offCtx = offscreen.getContext('2d')!;
+
+  // Get pre-rendered circle stamp
+  const circle = getHeatmapCircle(radius);
+
+  // Stamp weighted points onto offscreen canvas
+  const normalizer = 1 / maxWeight;
+  for (const p of points) {
+    const alpha = Math.min(p.weight * normalizer, 1);
+    // Square the alpha for a more focused heat gradient
+    const intensity = alpha * alpha;
+    offCtx.globalAlpha = Math.max(intensity * 0.85, 0.01);
+    offCtx.drawImage(circle, p.x - radius, p.y - radius);
+  }
+
+  // Get grayscale image data
+  const imageData = offCtx.getImageData(0, 0, w, h);
+  const pixels = imageData.data;
+
+  // Colorize using gradient LUT — each pixel's alpha maps to a color
+  for (let i = 3; i < pixels.length; i += 4) {
+    const alpha = pixels[i];
+    if (alpha > 0) {
+      const idx = Math.min(Math.floor((alpha / 255) * 255), 254);
+      pixels[i - 3] = gradient[idx][0];
+      pixels[i - 2] = gradient[idx][1];
+      pixels[i - 1] = gradient[idx][2];
+      // Preserve alpha for natural blending
+    }
+  }
+  offCtx.putImageData(imageData, 0, 0);
+
+  // Composite over the target context using screen blend for glow effect
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  ctx.drawImage(offscreen, 0, 0);
+  ctx.restore();
+}
+
+/**
+ * Normalize a palette from [0,1]-rgb stops to a flat 256-entry LUT.
+ * Used to convert MAGMA_PALETTE / VIRIDIS_PALETTE into heatmap gradients.
+ */
+export function paletteToGradient(
+  palette: [number, number, number][],
+  size: number = 256,
+): [number, number, number][] {
+  const stops = palette.length - 1;
+  const lut: [number, number, number][] = [];
+  for (let i = 0; i < size; i++) {
+    const t = i / (size - 1);
+    const idx = t * stops;
+    const lo = Math.min(Math.floor(idx), stops - 1);
+    const hi = lo + 1;
+    const frac = idx - lo;
+    const [r0, g0, b0] = palette[lo];
+    const [r1, g1, b1] = palette[hi];
+    lut.push([
+      Math.round(r0 * 255 + (r1 * 255 - r0 * 255) * frac),
+      Math.round(g0 * 255 + (g1 * 255 - g0 * 255) * frac),
+      Math.round(b0 * 255 + (b1 * 255 - b0 * 255) * frac),
+    ]);
+  }
+  return lut;
+}

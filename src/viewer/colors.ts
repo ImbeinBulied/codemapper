@@ -102,6 +102,72 @@ export function setColorblind(v: boolean) {
   isColorblind = v;
 }
 
+/**
+ * Heatmap color gradient arrays (Magma and Viridis inspired).
+ * 256-entry lookup tables for canvas-based heatmap rendering.
+ * Generated from the stop-based palettes in hotspot.ts.
+ */
+export const HEATMAP_GRADIENT_MAGMA: [number, number, number][] = buildMagmaGradient(256);
+export const HEATMAP_GRADIENT_VIRIDIS: [number, number, number][] = buildViridisGradient(256);
+
+function buildMagmaGradient(size: number): [number, number, number][] {
+  const stops: [number, number, number, number][] = [
+    [0.0, 0.0, 0.0, 0.0],
+    [0.07, 0.0, 0.0, 0.18],
+    [0.2, 0.2, 0.0, 0.35],
+    [0.35, 0.35, 0.16, 0.3],
+    [0.5, 0.5, 0.4, 0.16],
+    [0.65, 0.65, 0.65, 0.04],
+    [0.8, 0.8, 0.9, 0.22],
+    [0.9, 0.9, 0.98, 0.55],
+    [1.0, 1.0, 1.0, 0.98],
+  ];
+  return buildGradientLUT(stops, size);
+}
+
+function buildViridisGradient(size: number): [number, number, number][] {
+  const stops: [number, number, number, number][] = [
+    [0.0, 0.27, 0.0, 0.33],
+    [0.2, 0.2, 0.12, 0.49],
+    [0.4, 0.13, 0.28, 0.53],
+    [0.5, 0.08, 0.43, 0.5],
+    [0.6, 0.13, 0.56, 0.41],
+    [0.7, 0.36, 0.67, 0.24],
+    [0.8, 0.64, 0.74, 0.08],
+    [0.9, 0.88, 0.77, 0.14],
+    [1.0, 1.0, 0.98, 0.6],
+  ];
+  return buildGradientLUT(stops, size);
+}
+
+function buildGradientLUT(
+  stops: [number, number, number, number][],
+  size: number,
+): [number, number, number][] {
+  const lut: [number, number, number][] = [];
+  for (let i = 0; i < size; i++) {
+    const t = i / (size - 1);
+    // Find the two stops that bracket t
+    let lo = 0;
+    for (let s = 0; s < stops.length - 1; s++) {
+      if (t >= stops[s][0] && t <= stops[s + 1][0]) {
+        lo = s;
+        break;
+      }
+    }
+    if (t >= stops[stops.length - 1][0]) lo = stops.length - 2;
+    const [t0, r0, g0, b0] = stops[lo];
+    const [t1, r1, g1, b1] = stops[lo + 1];
+    const frac = (t - t0) / (t1 - t0 || 1);
+    lut.push([
+      Math.round(r0 + (r1 - r0) * frac),
+      Math.round(g0 + (g1 - g0) * frac),
+      Math.round(b0 + (b1 - b0) * frac),
+    ]);
+  }
+  return lut;
+}
+
 export function toggleColorblindMode() {
   isColorblind = !isColorblind;
   if (isColorblind) {

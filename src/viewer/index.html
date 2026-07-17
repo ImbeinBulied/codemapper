@@ -47,51 +47,52 @@
       <span class="sep"></span>
       <span id="stats"></span>
       <span class="sep"></span>
+      <span class="group-label">Filter</span>
       <div style="display: flex; align-items: center; gap: 4px">
         <button
           class="filter-btn"
           data-kind="file"
           onclick="window.toggleFilter('file')"
-          aria-label="Filter files"
+          aria-label="Toggle file nodes"
           aria-pressed="true"
         >
-          F
+          Files
         </button>
         <button
           class="filter-btn"
           data-kind="function"
           onclick="window.toggleFilter('function')"
-          aria-label="Filter functions"
+          aria-label="Toggle function nodes"
           aria-pressed="true"
         >
-          fn
+          Funcs
         </button>
         <button
           class="filter-btn"
           data-kind="class"
           onclick="window.toggleFilter('class')"
-          aria-label="Filter classes"
+          aria-label="Toggle class nodes"
           aria-pressed="true"
         >
-          C
+          Classes
         </button>
         <button
           class="filter-btn"
           data-kind="interface"
           onclick="window.toggleFilter('interface')"
-          aria-label="Filter interfaces"
+          aria-label="Toggle interface nodes"
           aria-pressed="true"
         >
-          I
+          Iface
         </button>
         <button
           class="filter-btn"
           data-kind="type"
           onclick="window.toggleFilter('type')"
-          aria-label="Filter types"
+          aria-label="Toggle type nodes"
           aria-pressed="true"
         >
-          T
+          Types
         </button>
       </div>
       <span class="sep"></span>
@@ -115,48 +116,77 @@
       >
         ⊞ Force
       </button>
-      <span class="sep"></span>
-      <button id="theme-btn" onclick="window.toggleTheme()" title="Toggle theme" aria-label="Toggle dark/light theme">
-        🌙
-      </button>
-      <span class="sep"></span>
-      <button
-        id="cb-btn"
-        onclick="window.toggleColorblind()"
-        title="Colorblind mode"
-        aria-label="Toggle colorblind-safe palette"
-        aria-pressed="false"
-      >
-        ◐
-      </button>
-      <span class="sep"></span>
-      <div class="toolbar-group">
-        <button
-          id="hotspot-btn"
-          class="filter-btn"
-          onclick="window.toggleHotspotMenu()"
-          title="Hotspot mode (H)"
-          aria-label="Toggle hotspot visualization"
-          data-mode="default"
-        >
-          🔥
+      <!-- Secondary controls collapsed under "More" -->
+      <span class="sep more-sep"></span>
+      <div class="more-menu toolbar-group">
+        <button id="more-btn" onclick="window.toggleMoreMenu(event)" aria-haspopup="true" aria-expanded="false">
+          More &#9662;
         </button>
-        <div id="hotspot-menu" class="hidden">
-          <button data-mode="default" onclick="window.setHotspotMode('default')">Default</button>
-          <button data-mode="complexity" onclick="window.setHotspotMode('complexity')">Complexity</button>
-          <button data-mode="churn" onclick="window.setHotspotMode('churn')">Churn (90d)</button>
-          <button data-mode="hotspot" onclick="window.setHotspotMode('hotspot')">Hotspot Score</button>
-          <button data-mode="maintainability" onclick="window.setHotspotMode('maintainability')">
-            Maintainability
+        <div id="more-dropdown" class="hidden">
+          <button
+            id="theme-btn"
+            onclick="window.toggleTheme()"
+            title="Toggle theme"
+            aria-label="Toggle dark/light theme"
+          >
+            🌙 <span>Theme</span>
           </button>
-        </div>
-      </div>
-      <span class="sep"></span>
-      <div class="export-btn" onclick="window.toggleExport(event)">
-        <span aria-label="Export options">Export &#9662;</span>
-        <div id="export-dropdown">
-          <button onclick="window.exportPNG()" aria-label="Export graph as PNG image">Export PNG</button>
-          <button onclick="window.exportJSON()" aria-label="Export graph data as JSON">Export JSON</button>
+          <button
+            id="cb-btn"
+            onclick="window.toggleColorblind()"
+            title="Colorblind mode"
+            aria-label="Toggle colorblind-safe palette"
+            aria-pressed="false"
+          >
+            ◐ <span>Colorblind</span>
+          </button>
+          <button
+            id="hull-btn"
+            onclick="window.toggleHulls()"
+            title="Toggle directory hulls (Shift+H)"
+            aria-label="Toggle convex hull visualization for directory groups"
+            aria-pressed="false"
+          >
+            ▣ <span>Hulls</span>
+          </button>
+          <div class="more-submenu">
+            <button
+              id="hotspot-btn"
+              onclick="window.toggleHotspotMenu(event)"
+              title="Hotspot mode (H)"
+              aria-label="Toggle hotspot visualization"
+              data-mode="default"
+            >
+              🔥 <span>Hotspot</span> &#9656;
+            </button>
+            <div id="hotspot-menu" class="hidden">
+              <button data-mode="default" onclick="window.setHotspotMode('default')">Default</button>
+              <button data-mode="complexity" onclick="window.setHotspotMode('complexity')">Complexity</button>
+              <button data-mode="churn" onclick="window.setHotspotMode('churn')">Churn (90d)</button>
+              <button data-mode="hotspot" onclick="window.setHotspotMode('hotspot')">Hotspot Score</button>
+              <button data-mode="maintainability" onclick="window.setHotspotMode('maintainability')">
+                Maintainability
+              </button>
+            </div>
+          </div>
+          <button
+            id="heatmap-btn"
+            onclick="window.toggleHeatmapOverlay()"
+            title="Toggle heatmap overlay (6)"
+            aria-label="Toggle continuous heatmap overlay"
+            data-active="false"
+          >
+            🔥 <span>Heatmap Overlay</span>
+          </button>
+          <div class="more-submenu">
+            <button onclick="window.toggleExport(event)" aria-label="Export options">
+              ⤓ <span>Export</span> &#9656;
+            </button>
+            <div id="export-dropdown" class="hidden">
+              <button onclick="window.exportPNG()" aria-label="Export graph as PNG image">PNG image</button>
+              <button onclick="window.exportJSON()" aria-label="Export graph data as JSON">JSON data</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -171,16 +201,20 @@
       <div class="mm-viewport" id="mm-viewport"></div>
     </div>
     <div id="zoom-badge">
+      <button onclick="window.fitToView()" title="Fit graph to view" aria-label="Fit all nodes into the viewport">
+        ⊟ Fit
+      </button>
       <button onclick="window.resetZoom()" title="Reset zoom" aria-label="Reset zoom to 1:1">1:1</button>
       <span id="zoom-level">100%</span>
     </div>
     <div id="help-hint">
-      <kbd>Scroll</kbd> zoom &nbsp; <kbd>Drag</kbd> pan &nbsp; <kbd>Click</kbd> inspect &nbsp; <kbd>?</kbd> all
-      shortcuts
+      <kbd>Scroll</kbd> zoom &nbsp;·&nbsp; <kbd>Drag</kbd> pan &nbsp;·&nbsp; <kbd>Click</kbd> inspect &nbsp;·&nbsp;
+      <kbd>⊟ Fit</kbd> recenter &nbsp;·&nbsp; <kbd>?</kbd> shortcuts
     </div>
     <div id="sidebar">
       <div id="sidebar-header"></div>
       <div id="sidebar-content"></div>
+      <div id="sidebar-stats"></div>
     </div>
 
     <script src="/bundle.js"></script>
