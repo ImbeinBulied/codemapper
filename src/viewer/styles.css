@@ -158,18 +158,26 @@ body {
 #toolbar {
   position: fixed;
   top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 12px;
+  right: 12px;
   background: var(--toolbar-bg);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 6px 12px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   z-index: 5;
   font-size: 13px;
   backdrop-filter: blur(8px);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+#toolbar::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
 }
 #toolbar .brand {
   font-weight: 700;
@@ -186,6 +194,7 @@ body {
 #toolbar .stat {
   color: var(--muted);
   white-space: nowrap;
+  margin-right: 8px;
 }
 #toolbar .stat b {
   color: var(--text);
@@ -228,11 +237,11 @@ body {
   border: 1px solid var(--border);
   color: var(--muted);
   border-radius: 4px;
-  padding: 2px 8px;
+  padding: 2px 6px;
   cursor: pointer;
   font-size: 11px;
   white-space: nowrap;
-  min-height: 32px;
+  min-height: 28px;
 }
 .filter-btn:hover {
   color: var(--text);
@@ -360,12 +369,17 @@ body {
   background: #161b22cc;
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 5px 12px;
-  font-size: 11px;
+  padding: 4px 10px;
+  font-size: 10px;
   color: var(--muted);
   z-index: 4;
   backdrop-filter: blur(8px);
   white-space: nowrap;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+#help-hint:hover {
+  opacity: 1;
 }
 #help-hint kbd {
   background: var(--surface-hover);
@@ -474,17 +488,17 @@ body {
 
 #legend {
   position: fixed;
-  bottom: 12px;
-  right: 12px;
+  bottom: 50px;
+  left: 12px;
   z-index: 5;
   background: var(--toolbar-bg);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 10px 14px;
-  font-size: 11px;
+  padding: 8px 12px;
+  font-size: 10px;
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  flex-direction: row;
+  gap: 10px;
   backdrop-filter: blur(8px);
   transition: transform 0.25s ease;
 }
@@ -494,11 +508,11 @@ body {
 #legend .legend-item {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 #legend .legend-dot {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -527,29 +541,17 @@ body {
   line-height: 1.5;
 }
 
-#theme-btn {
+#theme-btn, #cb-btn {
   background: none;
   border: 1px solid var(--border);
   color: var(--muted);
   border-radius: 4px;
-  padding: 2px 6px;
+  padding: 2px 5px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1;
-  min-height: 32px;
-  min-width: 32px;
-}
-#cb-btn {
-  background: none;
-  border: 1px solid var(--border);
-  color: var(--muted);
-  border-radius: 4px;
-  padding: 2px 6px;
-  cursor: pointer;
-  font-size: 13px;
-  line-height: 1;
-  min-height: 32px;
-  min-width: 32px;
+  min-height: 28px;
+  min-width: 28px;
 }
 #cb-btn:hover {
   color: var(--text);

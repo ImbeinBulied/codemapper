@@ -484,11 +484,11 @@ function renderCanvas2D() {
     )
       cycleEdge = true;
     ctx.strokeStyle = cycleEdge ? COLORS.cycle_edge : COLORS['edge_' + e.kind] || '#8b949e';
-    ctx.lineWidth = related || isFocusRelated ? 2.5 / transform.k : 1.2 / transform.k;
-    let alpha = 0.3;
-    if (hasHover && !related) alpha = 0.06;
-    if (hasFocus && isFocusRelated) alpha = 0.7;
-    if (hasFocus && !isFocusRelated) alpha = 0.04;
+    ctx.lineWidth = related || isFocusRelated ? 2.0 / transform.k : 0.6 / transform.k;
+    let alpha = 0.08;
+    if (hasHover && !related) alpha = 0.02;
+    if (hasFocus && isFocusRelated) alpha = 0.4;
+    if (hasFocus && !isFocusRelated) alpha = 0.01;
     // Dim non-path edges when pathfinder is active
     if (pathfinderActive && activePath.length > 0) {
       const srcId = (e.source as any).id ?? e.source;
@@ -562,6 +562,10 @@ function renderCanvas2D() {
     if (glowColor) {
       ctx.shadowColor = glowColor;
       ctx.shadowBlur = glowBlur;
+    } else {
+      // Default glow for all nodes
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 8;
     }
     if (fadeAlpha < 1) ctx.globalAlpha *= fadeAlpha;
     // Dim non-path nodes when pathfinder is active

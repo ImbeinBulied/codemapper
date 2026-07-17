@@ -20,7 +20,7 @@ export interface ColorSet {
 }
 
 const DARK: ColorSet = {
-  file: '#30363d',
+  file: '#484f58',
   function: '#d2a8ff',
   class: '#58a6ff',
   interface: '#79c0ff',
@@ -61,13 +61,13 @@ const LIGHT: ColorSet = {
 
 export let COLORS: ColorSet = { ...DARK };
 export let NODE_SIZE: Record<string, number> = {
-  file: 16,
-  function: 24,
-  class: 28,
-  interface: 26,
-  type: 22,
-  module: 14,
-  call: 18,
+  file: 32,
+  function: 48,
+  class: 56,
+  interface: 52,
+  type: 44,
+  module: 28,
+  call: 36,
   directory: 0,
 };
 

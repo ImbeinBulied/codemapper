@@ -140,6 +140,12 @@ export async function startServer(
       // Include cycle count in the response
       res.json({
         ...result,
+        analytics: result.analytics
+          ? {
+              ...result.analytics,
+              metrics: Array.from(result.analytics.metrics.entries()),
+            }
+          : undefined,
         cycleCount: result.cycles?.length || 0,
       });
     } catch (err: any) {
