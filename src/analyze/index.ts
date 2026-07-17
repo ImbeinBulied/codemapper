@@ -203,6 +203,12 @@ export async function analyzeCodebase(
     edges: allEdges,
   };
 
+  // Filter edges to only include those referencing existing nodes.
+  // Language analyzers may emit edges pointing at external types or
+  // unresolved relative imports that were never added to the node set.
+  const nodeIds = new Set(graph.nodes.map((n) => n.id));
+  graph.edges = graph.edges.filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target));
+
   if (filter) {
     const pattern = validateRegex(filter);
     if (pattern) {

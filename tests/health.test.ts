@@ -35,10 +35,7 @@ describe('Health Score', () => {
   it('penalizes cycles in the graph', () => {
     // 1 out of 2 files in a cycle → 50% * 2 * 0.3 = 30 penalty
     const nodes = [makeNode('file:/a.ts'), makeNode('file:/b.ts')];
-    const edges = [
-      makeEdge('file:/a.ts', 'file:/b.ts'),
-      makeEdge('file:/b.ts', 'file:/a.ts'),
-    ];
+    const edges = [makeEdge('file:/a.ts', 'file:/b.ts'), makeEdge('file:/b.ts', 'file:/a.ts')];
     const result = computeHealthScore(nodes, edges, {
       cycleNodes: new Set(['file:/a.ts']),
     });
@@ -125,9 +122,7 @@ describe('Health Score', () => {
   it('computes grade F for score < 50', () => {
     // Create many problematic nodes to drive score down
     const nodes = Array.from({ length: 10 }, (_, i) => makeNode(`file:/bad${i}.ts`));
-    const metrics = new Map(
-      nodes.map((n) => [n.id, { instability: 0.9, heat: 0.9, fanOut: 20 }]),
-    );
+    const metrics = new Map(nodes.map((n) => [n.id, { instability: 0.9, heat: 0.9, fanOut: 20 }]));
     const result = computeHealthScore(nodes, [], {
       metrics,
       cycleNodes: new Set(nodes.map((n) => n.id)),
@@ -137,10 +132,7 @@ describe('Health Score', () => {
   });
 
   it('handles missing analytics gracefully', () => {
-    const result = computeHealthScore(
-      [makeNode('file:/a.ts')],
-      [],
-    );
+    const result = computeHealthScore([makeNode('file:/a.ts')], []);
     expect(result.score).toBeGreaterThanOrEqual(0);
     expect(result.score).toBeLessThanOrEqual(100);
     expect(result.negatives).toEqual([]);

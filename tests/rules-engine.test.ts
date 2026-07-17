@@ -20,16 +20,9 @@ describe('Rules Engine', () => {
   });
 
   it('detects a simple rule violation', () => {
-    const nodes = [
-      makeNode('file:/src/app.ts'),
-      makeNode('file:/src/legacy/deprecated.ts'),
-    ];
-    const edges = [
-      makeEdge('file:/src/app.ts', 'file:/src/legacy/deprecated.ts'),
-    ];
-    const rules: Rule[] = [
-      { from: 'src/**', to: 'src/legacy/**', severity: 'error', description: 'No legacy deps' },
-    ];
+    const nodes = [makeNode('file:/src/app.ts'), makeNode('file:/src/legacy/deprecated.ts')];
+    const edges = [makeEdge('file:/src/app.ts', 'file:/src/legacy/deprecated.ts')];
+    const rules: Rule[] = [{ from: 'src/**', to: 'src/legacy/**', severity: 'error', description: 'No legacy deps' }];
 
     const result = evaluateRules(nodes, edges, rules);
     expect(result.violations).toHaveLength(1);
@@ -39,31 +32,17 @@ describe('Rules Engine', () => {
   });
 
   it('does not flag edges that do not match patterns', () => {
-    const nodes = [
-      makeNode('file:/src/app.ts'),
-      makeNode('file:/src/lib/utils.ts'),
-    ];
-    const edges = [
-      makeEdge('file:/src/app.ts', 'file:/src/lib/utils.ts'),
-    ];
-    const rules: Rule[] = [
-      { from: 'src/**', to: 'src/legacy/**', severity: 'error' },
-    ];
+    const nodes = [makeNode('file:/src/app.ts'), makeNode('file:/src/lib/utils.ts')];
+    const edges = [makeEdge('file:/src/app.ts', 'file:/src/lib/utils.ts')];
+    const rules: Rule[] = [{ from: 'src/**', to: 'src/legacy/**', severity: 'error' }];
 
     const result = evaluateRules(nodes, edges, rules);
     expect(result.violations).toHaveLength(0);
   });
 
   it('counts warnings separately from errors', () => {
-    const nodes = [
-      makeNode('file:/a.ts'),
-      makeNode('file:/b.ts'),
-      makeNode('file:/c.ts'),
-    ];
-    const edges = [
-      makeEdge('file:/a.ts', 'file:/b.ts'),
-      makeEdge('file:/a.ts', 'file:/c.ts'),
-    ];
+    const nodes = [makeNode('file:/a.ts'), makeNode('file:/b.ts'), makeNode('file:/c.ts')];
+    const edges = [makeEdge('file:/a.ts', 'file:/b.ts'), makeEdge('file:/a.ts', 'file:/c.ts')];
     const rules: Rule[] = [
       { from: '**', to: 'b.ts', severity: 'error' },
       { from: '**', to: 'c.ts', severity: 'warn' },
@@ -76,61 +55,35 @@ describe('Rules Engine', () => {
   });
 
   it('counts forbidden violations', () => {
-    const nodes = [
-      makeNode('file:/a.ts'),
-      makeNode('file:/b.ts'),
-    ];
-    const edges = [
-      makeEdge('file:/a.ts', 'file:/b.ts'),
-    ];
-    const rules: Rule[] = [
-      { from: '**', to: 'b.ts', severity: 'forbidden' },
-    ];
+    const nodes = [makeNode('file:/a.ts'), makeNode('file:/b.ts')];
+    const edges = [makeEdge('file:/a.ts', 'file:/b.ts')];
+    const rules: Rule[] = [{ from: '**', to: 'b.ts', severity: 'forbidden' }];
 
     const result = evaluateRules(nodes, edges, rules);
     expect(result.forbiddenCount).toBe(1);
   });
 
   it('matches glob star patterns', () => {
-    const nodes = [
-      makeNode('file:/src/components/Button.tsx'),
-      makeNode('file:/src/utils/helpers.ts'),
-    ];
-    const edges = [
-      makeEdge('file:/src/components/Button.tsx', 'file:/src/utils/helpers.ts'),
-    ];
-    const rules: Rule[] = [
-      { from: 'src/components/**', to: 'src/utils/**', severity: 'warn' },
-    ];
+    const nodes = [makeNode('file:/src/components/Button.tsx'), makeNode('file:/src/utils/helpers.ts')];
+    const edges = [makeEdge('file:/src/components/Button.tsx', 'file:/src/utils/helpers.ts')];
+    const rules: Rule[] = [{ from: 'src/components/**', to: 'src/utils/**', severity: 'warn' }];
 
     const result = evaluateRules(nodes, edges, rules);
     expect(result.violations).toHaveLength(1);
   });
 
   it('matches based on path after stripping file: prefix', () => {
-    const nodes = [
-      makeNode('file:/project/src/domain/entity.ts'),
-      makeNode('file:/project/src/infrastructure/db.ts'),
-    ];
-    const edges = [
-      makeEdge('file:/project/src/domain/entity.ts', 'file:/project/src/infrastructure/db.ts'),
-    ];
-    const rules: Rule[] = [
-      { from: '**/domain/**', to: '**/infrastructure/**', severity: 'error' },
-    ];
+    const nodes = [makeNode('file:/project/src/domain/entity.ts'), makeNode('file:/project/src/infrastructure/db.ts')];
+    const edges = [makeEdge('file:/project/src/domain/entity.ts', 'file:/project/src/infrastructure/db.ts')];
+    const rules: Rule[] = [{ from: '**/domain/**', to: '**/infrastructure/**', severity: 'error' }];
 
     const result = evaluateRules(nodes, edges, rules);
     expect(result.violations).toHaveLength(1);
   });
 
   it('handles multiple rules matching the same edge', () => {
-    const nodes = [
-      makeNode('file:/a.ts'),
-      makeNode('file:/b.ts'),
-    ];
-    const edges = [
-      makeEdge('file:/a.ts', 'file:/b.ts'),
-    ];
+    const nodes = [makeNode('file:/a.ts'), makeNode('file:/b.ts')];
+    const edges = [makeEdge('file:/a.ts', 'file:/b.ts')];
     const rules: Rule[] = [
       { from: '**', to: 'b.ts', severity: 'error' },
       { from: 'a.ts', to: '**', severity: 'warn' },

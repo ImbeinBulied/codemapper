@@ -541,7 +541,8 @@ body {
   line-height: 1.5;
 }
 
-#theme-btn, #cb-btn {
+#theme-btn,
+#cb-btn {
   background: none;
   border: 1px solid var(--border);
   color: var(--muted);

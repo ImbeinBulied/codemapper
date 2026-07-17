@@ -157,10 +157,7 @@ describe('Config validation', () => {
   });
 
   it('rejects non-array rules', async () => {
-    fs.writeFileSync(
-      path.join(tmpDir, '.codemapperrc.json'),
-      JSON.stringify({ rules: 'not-an-array' }),
-    );
+    fs.writeFileSync(path.join(tmpDir, '.codemapperrc.json'), JSON.stringify({ rules: 'not-an-array' }));
     const { loadConfig } = await import('../src/config.js');
     const config = loadConfig(tmpDir);
     expect(config).toEqual({});

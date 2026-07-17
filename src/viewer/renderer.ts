@@ -484,6 +484,11 @@ function renderCanvas2D() {
       cycleNodes.has((e.target as any).id)
     )
       cycleEdge = true;
+    // Aggressive LOD-based edge culling: at low zoom, skip edges not
+    // connected to hovered/selected/focused nodes to reduce visual noise.
+    if (transform.k < 0.3 && !related && !isFocusRelated && !cycleEdge) {
+      if (!hasHover && !hasFocus) continue;
+    }
     ctx.strokeStyle = cycleEdge ? COLORS.cycle_edge : COLORS['edge_' + e.kind] || '#8b949e';
     ctx.lineWidth = related || isFocusRelated ? 2.0 / transform.k : 0.6 / transform.k;
     let alpha = 0.08;
